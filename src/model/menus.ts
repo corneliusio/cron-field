@@ -197,10 +197,12 @@ export const sectionFilled = (section: Section, c: Compiled) => {
     return !!p && (!p.ok || !p.star) && (section.holds?.(c) ?? true)
 }
 
-/** `?` and `*` both mean "any" in the day fields, so presets compare them as one. */
-const same = (a: string | undefined, b: string) => (a === '?' ? '*' : a)?.toUpperCase() === (b === '?' ? '*' : b).toUpperCase()
+/** `?` and `*` both mean "any" in the day fields, so presets compare them as one, except where `?` counts as a set day. */
+export const isCurrent = (c: Compiled, field: FieldKey, token: string) => {
+    const any = (text: string | undefined) => (text === '?' && c.profile.question !== 'value' ? '*' : text)?.toUpperCase()
 
-export const isCurrent = (c: Compiled, field: FieldKey, token: string) => same(c.raws[field], token)
+    return any(c.raws[field]) === any(token)
+}
 
 /** The value a field takes when the schedule has to be rebuilt from scratch: on the hour, not every minute. */
 const fresh = (key: FieldKey) => (key === 'second' || key === 'minute' ? '0' : '*')
@@ -217,7 +219,8 @@ export const applyChanges = (value: string, changes: Changes, profile: TargetPro
     for (const [key, token] of Object.entries(changes) as [FieldKey, string][]) {
         tokens[key] = token
 
-        if (profile.days === 'exclusive' && (key === 'day' || key === 'weekday') && token !== '*' && token !== '?') {
+        // `?` leaves the other day field alone, unless the target counts it as a set day.
+        if (profile.days === 'exclusive' && (key === 'day' || key === 'weekday') && token !== '*' && (token !== '?' || profile.question === 'value')) {
             tokens[key === 'day' ? 'weekday' : 'day'] = '*'
         }
     }

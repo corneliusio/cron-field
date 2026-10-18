@@ -4,7 +4,9 @@
  */
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { applyChanges, compile, daysNote, menu, menuOf, nthOptions, nthToken, TARGETS, type TargetName } from '../../src/index.ts'
+import { CronExpressionParser } from 'cron-parser'
+import { cronParser } from '../../src/adapters/cron-parser.ts'
+import { applyChanges, compile, daysNote, isCurrent, menu, menuOf, nthOptions, nthToken, TARGETS, type TargetName } from '../../src/index.ts'
 
 const labels = (name: TargetName) => menu('days', compile('0 9 * * *', TARGETS[name])).sections.flatMap(section => section.presets.map(([label]) => label))
 
@@ -85,6 +87,16 @@ test('presets can be replaced or extended per field, and take the chip’s words
 test('a change to a value that doesn’t parse starts from a schedule on the hour', () => {
     assert.equal(applyChanges('0 9', { hour: '9' }, TARGETS.croner), '0 9 * * *')
     assert.equal(applyChanges('', { weekday: '2-6' }, TARGETS.quartz), '0 0 * ? * 2-6')
+})
+
+test('? is the * preset only where it means the same, and clears the other day field where it counts as set', () => {
+    const strict = cronParser(CronExpressionParser, { strict: true }).profile
+
+    assert.equal(isCurrent(compile('0 0 9 ? * *', TARGETS.quartz), 'day', '*'), true)
+    // croner reads ? as every day, set, so * would change what runs.
+    assert.equal(isCurrent(compile('0 9 ? * 1', TARGETS.croner), 'day', '*'), false)
+    assert.equal(applyChanges('0 0 9 * * 1', { day: '?' }, strict), '0 0 9 ? * *')
+    assert.equal(applyChanges('0 0 9 ? * 1', { day: '?' }, TARGETS.quartz), '0 0 9 ? * 1')
 })
 
 test('the Days menu says how the two day fields combine', () => {
