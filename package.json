@@ -59,6 +59,7 @@
         "fmt": "oxfmt --write .",
         "fmt:check": "oxfmt --check .",
         "lint": "oxlint",
+        "prepare": "node scripts/build.ts",
         "test": "TZ=America/Chicago node --import ./test/support/register.ts --test 'test/**/*.test.ts'",
         "verify": "pnpm check && pnpm lint && pnpm fmt:check && pnpm test && pnpm build"
     },
