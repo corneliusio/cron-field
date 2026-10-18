@@ -214,10 +214,10 @@ export const applyChanges = (value: string, changes: Changes, profile: TargetPro
     const whole = parts.length === profile.fields.length
     const tokens: Changes = Object.fromEntries(profile.fields.map((key, i) => [key, whole ? (parts[i] ?? fresh(key)) : fresh(key)]))
 
-    for (const [key, token] of Object.entries(changes) as [FieldKey, string | undefined][]) {
-        tokens[key] = token ?? '*'
+    for (const [key, token] of Object.entries(changes) as [FieldKey, string][]) {
+        tokens[key] = token
 
-        if (profile.days === 'exclusive' && (key === 'day' || key === 'weekday') && token && token !== '*' && token !== '?') {
+        if (profile.days === 'exclusive' && (key === 'day' || key === 'weekday') && token !== '*' && token !== '?') {
             tokens[key === 'day' ? 'weekday' : 'day'] = '*'
         }
     }
