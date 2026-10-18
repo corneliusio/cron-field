@@ -158,7 +158,7 @@ test('a restored form state applies a string and ignores anything else', () => {
     assert.equal(element.value, '15 10 * * *')
 })
 
-test('attributes set the target, clock, locale, week start, chip width and label, and ignore values they can’t read', () => {
+test('attributes set the target, clock, locale, week start, chip width, default mode and label, and ignore values they can’t read', () => {
     const element = page('<cron-field value="0 9 * * 1-5" hourcycle="h23" labelledby="outside"></cron-field>')
     const chips = find(element, '[data-part="chips"]')
     const days = () => {
@@ -196,6 +196,10 @@ test('attributes set the target, clock, locale, week start, chip width and label
 
     element.setAttribute('target', 'quartz')
     assert.equal(fieldsOf(element), 'second minute hour day month weekday')
+
+    const editing = page('<cron-field defaultmode="cron" value="0 9 * * *"></cron-field>')
+
+    assert.equal(find<HTMLInputElement>(editing, '[data-part="input"]').hidden, false, 'defaultmode="cron" opens in Edit as cron')
 })
 
 test('properties carry the options attributes can’t: an adapter target, presets, describe, translation and parts', () => {

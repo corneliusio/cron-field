@@ -21,6 +21,9 @@ const field = createCronField(document.querySelector('#schedule'), {
 
 `setValue` and `setOptions` update a field; passing `undefined` for an option clears it back to its default.
 
+`defaultMode: 'cron'` opens the field in Edit as cron instead of on the chips. It is read once, when the field is created; Done
+still switches to the chips. On `<cron-field>` it is the `defaultmode` attribute.
+
 Wrappers mount the same field and render a plain input until it does, so forms submit without JavaScript:
 
 | Entry                    | Use                                                                            |

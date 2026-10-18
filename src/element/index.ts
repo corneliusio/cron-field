@@ -6,7 +6,7 @@
  *     <cron-field name="schedule" value="0 9 * * 1-5" target="github"><input name="schedule" value="0 9 * * 1-5"></cron-field>
  *
  * A child input is the fallback before the script loads; the element takes its name and value.
- * Attributes: value, target, label, labelledby, name, disabled, timezone, hourcycle, locale, weekstart, chipwidth. Adapter targets,
+ * Attributes: value, target, label, labelledby, name, disabled, timezone, hourcycle, locale, weekstart, chipwidth, defaultmode. Adapter targets,
  * `describe`, `parts`, `presets` and `translateMessage` (the `translate` option) are properties.
  */
 import type { TargetInput } from '../core/target.ts'
@@ -225,6 +225,7 @@ export class CronFieldElement extends HTMLElement {
             locale: get('locale'),
             weekStart: weekStart >= 0 && weekStart <= 6 ? weekStart : undefined,
             chipWidth: get('chipwidth') === 'equal' ? 'equal' : undefined,
+            defaultMode: get('defaultmode') === 'cron' ? 'cron' : undefined,
             // Form-associated elements match :disabled for their own attribute and for a disabled fieldset.
             disabled: this.matches(':disabled'),
         }

@@ -59,6 +59,8 @@ export type CronFieldOptionsOf<T> = {
     presets?: Presets | undefined
     /** `content` (default): chips share the row by the length of their token. `equal`: every chip gets the same share. */
     chipWidth?: 'content' | 'equal' | undefined
+    /** `cron` opens the field in Edit as cron; `chips` (default) opens it on the chips. Read once, when the field is created. */
+    defaultMode?: 'chips' | 'cron' | undefined
     onChange?: ((value: string, detail: ChangeDetail) => void) | undefined
 }
 
@@ -136,7 +138,7 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
     let value = options.value ?? ''
     let compiled: Compiled = compile(value, target.profile)
     let state: Status = statusOf(value, compiled, target, { ...options, fmt, engine })
-    let raw = tokenize(value, target.profile).length !== target.profile.fields.length
+    let raw = options.defaultMode === 'cron' || tokenize(value, target.profile).length !== target.profile.fields.length
     let typing = false
     let before = value
     let openField: FieldKey | null = null
@@ -932,7 +934,7 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
                     ? !sameProfile
                     : key === 'presets'
                       ? JSON.stringify(next.presets) !== JSON.stringify(options.presets)
-                      : key !== 'onChange' && next[key] !== options[key],
+                      : key !== 'onChange' && key !== 'defaultMode' && next[key] !== options[key],
             )
 
             options = { ...options, ...next }

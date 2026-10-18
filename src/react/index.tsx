@@ -42,6 +42,7 @@ export const CronField = ({
     parts,
     presets,
     chipWidth,
+    defaultMode,
     translate,
 }: CronFieldProps) => {
     const element = useRef<HTMLDivElement>(null)
@@ -64,6 +65,7 @@ export const CronField = ({
         parts,
         presets,
         chipWidth,
+        defaultMode,
         translate,
     }
 

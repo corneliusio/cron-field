@@ -270,6 +270,21 @@ test('Edit as cron commits each new draft once, keeps a draft of the wrong shape
     assert.equal(field.value, '15 10 * * *')
 })
 
+test('defaultMode cron opens the field in Edit as cron, and only when it is created', () => {
+    const { root, field } = mount({ value: '0 9 * * 1-5', defaultMode: 'cron' })
+    const toggle = find(root, '[data-part="mode-toggle"]')
+    const input = find<HTMLInputElement>(root, '[data-part="input"]')
+
+    assert.deepEqual([input.hidden, input.value, toggle.textContent], [false, '0 9 * * 1-5', 'Done'])
+
+    toggle.click()
+    assert.equal(input.hidden, true)
+
+    field.setOptions({ defaultMode: 'chips' })
+    field.setOptions({ defaultMode: 'cron' })
+    assert.equal(input.hidden, true)
+})
+
 test('Escape back to a value that still needs Edit as cron shows that value in the input', () => {
     const { root, field } = mount({ value: '' })
     const input = find<HTMLInputElement>(root, '[data-part="input"]')

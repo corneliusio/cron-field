@@ -33,6 +33,7 @@
         parts,
         presets,
         chipWidth,
+        defaultMode,
         translate,
     }: Props = $props()
 
@@ -52,6 +53,7 @@
         parts,
         presets,
         chipWidth,
+        defaultMode,
         translate,
     })
 
