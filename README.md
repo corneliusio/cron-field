@@ -184,7 +184,6 @@ nextRuns(compile('0 9 * * 1-5', TARGETS.github), { count: 3 }) // Temporal.Zoned
 - The field, the sentence and the chip labels work as in `cron-field`; times and names are spelled through Temporal.
 - Both entries run on an `Engine`, which does time zones, the current time and spelling: `dateEngine` in `cron-field`, `temporalEngine` here.
 - Parser libraries still work in Date, so wrap their targets: `fromDateTarget(croner(Cron))`. That is the one place the entry touches Date.
-- Known gap: Node 26 drops the zero-padding of 24-hour times through Temporal in some locales, such as Japanese and Persian (7:05, where `cron-field` gives 07:05).
 
 ## Develop
 

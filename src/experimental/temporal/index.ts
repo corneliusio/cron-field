@@ -67,11 +67,24 @@ const zoneOf = (timezone?: string) => {
 const zoned = (time: number, timezone: string) => temporal().Instant.fromEpochMilliseconds(time).toZonedDateTimeISO(timezone)
 
 /**
+ * A two-digit hour the runtime left at one digit, padded in the locale's digits. The hour is the first digit on its own, as
+ * minutes always have two; where the runtime already pads, nothing matches.
+ */
+const padHour = (text: string, tag: string, hour: number) => {
+    const digit = new Intl.NumberFormat(tag).format(hour)
+
+    return hour < 10
+        ? text.replace(new RegExp(`(?<!\\p{Nd})${digit}(?!\\p{Nd})`, 'u'), new Intl.NumberFormat(tag, { minimumIntegerDigits: 2 }).format(hour))
+        : text
+}
+
+/**
  * The engine on Temporal. `compatible` is the field's DST rule: a skipped time moves past the gap, a repeated one takes
  * the first. Times are spelled through PlainTime and names through PlainDate, which carry no zone to shift them. The
  * hour cycle goes in the locale tag: some runtimes ignore the `hourCycle` option for Temporal values in some locales
- * (Japanese midnight on a 12-hour clock reads 午前0時 rather than 午前12時) but honor `-u-hc-`. Known gap: Node 26 also
- * drops the zero-padding of 24-hour times through Temporal in some locales, such as Japanese and Persian: 7:05 where Date gives 07:05.
+ * (Japanese midnight on a 12-hour clock reads 午前0時 rather than 午前12時) but honor `-u-hc-`. Node 26 also drops the
+ * padding of a two-digit hour in some locales, such as Japanese, Hebrew and Persian (7:05 where Date gives 07:05), so `padHour`
+ * puts it back.
  */
 export const temporalEngine: Engine = {
     now: () => temporal().Now.instant().epochMilliseconds,
@@ -88,9 +101,14 @@ export const temporalEngine: Engine = {
     spell: (locale, { hourCycle, ...options }, { month = 1, day = 1, hour, minute = 0 }) => {
         const tag = hourCycle ? new Intl.Locale(locale, { hourCycle }).toString() : locale
 
-        return hour === undefined
-            ? temporal().PlainDate.from({ year: 2001, month, day }).toLocaleString(tag, options)
-            : new (temporal().PlainTime)(hour, minute).toLocaleString(tag, options)
+        if (hour === undefined) {
+            return temporal().PlainDate.from({ year: 2001, month, day }).toLocaleString(tag, options)
+        }
+
+        const text = new (temporal().PlainTime)(hour, minute).toLocaleString(tag, options)
+
+        // On a 24-hour clock that reads midnight as 24, the hour shown is 24.
+        return options.hour === '2-digit' ? padHour(text, tag, hourCycle === 'h24' && hour === 0 ? 24 : hour) : text
     },
 }
 

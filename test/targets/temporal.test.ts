@@ -43,13 +43,8 @@ test('run times come back as ZonedDateTime in the schedule’s zone', () => {
 })
 
 test('names and times read the same spelled through Temporal', () => {
-    for (const locale of ['en', 'en-GB', 'de', 'fr', 'ja', 'ko', 'zh', 'ar', 'fa']) {
+    for (const locale of ['en', 'en-GB', 'de', 'fr', 'ja', 'ko', 'zh', 'ar', 'fa', 'he']) {
         for (const hourCycle of ['h11', 'h12', 'h23', 'h24'] as const) {
-            // Node 26's Temporal formatting drops the zero-padding of 24-hour times in Japanese and Persian (7:05, where Date gives 07:05).
-            if ((locale === 'ja' || locale === 'fa') && (hourCycle === 'h23' || hourCycle === 'h24')) {
-                continue
-            }
-
             assert.deepEqual(probe(formatter({ locale, hourCycle })), probe(formatterDate({ locale, hourCycle })), `${locale} ${hourCycle}`)
         }
     }
@@ -60,6 +55,13 @@ test('names and times read the same spelled through Temporal', () => {
 
     assert.equal(chipWords(compile('0 9-17 * * *', TARGETS.croner), { locale: 'de' }).hour, '09:00–17:00')
     assert.equal(menu('year', compile('0 0 1 1 ? *', TARGETS.eventbridge)).sections[0]?.presets[1]?.[1], String(Temporal.Now.plainDateISO().year))
+})
+
+test('the runtime still drops the hour padding the Temporal engine puts back', () => {
+    const time = new Temporal.PlainTime(7, 5).toLocaleString('ja-u-hc-h23', { hour: '2-digit', minute: '2-digit' })
+
+    // When this fails, the runtime pads the hour itself, and padHour in the Temporal entry can go.
+    assert.equal(time, '7:05')
 })
 
 test('a Date-based library target works through fromDateTarget', () => {
