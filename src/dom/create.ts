@@ -150,9 +150,9 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
     let value = options.value ?? ''
     let compiled: Compiled = compile(value, target.profile)
     let state: Status = statusOf(value, compiled, target, { ...options, fmt, engine })
-    let raw = opensRaw || !fits()
     // Edit as cron opened because the chips couldn't show the value, rather than by the user or `defaultMode`.
-    let forced = raw && !opensRaw
+    let forced = !opensRaw && !fits()
+    let raw = opensRaw || forced
     let typing = false
     let before = value
     let openField: FieldKey | null = null

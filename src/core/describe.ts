@@ -126,16 +126,19 @@ export const describe = (c: Compiled, options: DescribeOptions = {}): string | n
     const years = yearPhrase(c.parsed.year, f)
     // One second folds into exact times, as 9:00:30 AM.
     const second = secs && 'at' in secs && secs.at.length === 1 ? secs.at[0] : undefined
+    const every = secs && 'every' in secs ? t('seconds.every', { n: secs.every }) : null
+    // Seconds as a lead-in to the rest, and in place of "every minute", which they then say themselves.
+    const lead = secs && 'at' in secs ? t('seconds.at', secondsAt(secs.at, f)) : every
+    const perMinute = secs && 'at' in secs ? t('seconds.pastEveryMinute', secondsAt(secs.at, f)) : every
 
     let exactTimes = false
     let trailing = false
-    let seconds = secs && ('every' in secs ? t('seconds.every', { n: secs.every }) : t('seconds.at', secondsAt(secs.at, f)))
+    let seconds = lead
     let time: string
 
     /* Time of day */
     if (mk.k === 'any' && hk.k === 'any') {
-        // Seconds that run every minute say so themselves.
-        time = secs ? ('every' in secs ? (seconds ?? '') : t('seconds.pastEveryMinute', secondsAt(secs.at, f))) : t('time.everyNMinutes', { n: 1 })
+        time = perMinute ?? t('time.everyNMinutes', { n: 1 })
         seconds = null
     } else if (minutes.length * hours.length <= 6) {
         exactTimes = true
@@ -172,11 +175,9 @@ export const describe = (c: Compiled, options: DescribeOptions = {}): string | n
     } else {
         let base: string
 
-        if (mk.k === 'any' && secs) {
-            base = 'every' in secs ? (seconds ?? '') : t('seconds.pastEveryMinute', secondsAt(secs.at, f))
+        if (mk.k === 'any') {
+            base = perMinute ?? t('time.everyNMinutes', { n: 1 })
             seconds = null
-        } else if (mk.k === 'any') {
-            base = t('time.everyNMinutes', { n: 1 })
         } else if (mk.k === 'step' && secs && 'every' in secs && mk.full) {
             // Every so many seconds, every 5 minutes, would read as two cadences; the minutes say when the seconds run.
             base = t('time.inEveryNthMinute', { n: mk.step, nth: f.ordinal(mk.step) })

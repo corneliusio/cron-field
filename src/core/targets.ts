@@ -73,6 +73,8 @@ export type TargetName = 'vixie' | 'croner' | 'cron-parser' | 'effect' | 'vercel
 
 const FIVE: FieldKey[] = ['minute', 'hour', 'day', 'month', 'weekday']
 const ALL_EXTENSIONS: Extension[] = ['last', 'lastWeekday', 'nearest', 'lastDow', 'nth']
+/** Quartz reads every extension, each only as the whole field. */
+const QUARTZ_EXTENSIONS: Extension[] = [...ALL_EXTENSIONS, 'lastOffset', 'lastDayOfWeek']
 
 /** The fields with seconds in front and a year at the end, as the target's parts allow. */
 export const fieldsFor = (seconds: boolean, year = false): FieldKey[] => [...(seconds ? ['second' as const] : []), ...FIVE, ...(year ? ['year' as const] : [])]
@@ -136,10 +138,10 @@ export const TARGETS: Record<TargetName, TargetProfile> = {
         days: 'exclusive',
         question: 'required',
         macros: {},
-        extensions: [...ALL_EXTENSIONS, 'lastOffset', 'lastDayOfWeek'],
+        extensions: QUARTZ_EXTENSIONS,
         stepStart: true,
         wrapRanges: true,
-        alone: [...ALL_EXTENSIONS, 'lastOffset', 'lastDayOfWeek'],
+        alone: QUARTZ_EXTENSIONS,
     }),
     'eventbridge': base('eventbridge', 'EventBridge', {
         fields: fieldsFor(false, true),

@@ -6,7 +6,7 @@ import { describe as builtInDescribe, neverReason } from '../core/describe.ts'
 import { dateEngine, type Engine } from '../core/engine.ts'
 import { sorted, type FieldKey } from '../core/fields.ts'
 import { matchRuns } from '../core/schedule.ts'
-import { dayLogic, everyDay, type Compiled, type Issue } from '../core/syntax.ts'
+import { dayLogic, everyDay, type Compiled, type FieldIssue, type Issue } from '../core/syntax.ts'
 import type { TargetBase } from '../core/target.ts'
 import { formatter, type FormatOptions } from '../i18n/locale.ts'
 import { english, type Translator } from '../i18n/translate.ts'
@@ -34,8 +34,19 @@ export type StatusOptions = FormatOptions & {
 /** An issue from the parser, in words. */
 export const issueText = (issue: Issue, t: Translator = english) => t(issue.id, issue.params)
 
-/** A fix that sets `*` clears its field; any other fix uses its token. */
-const fixLabel = (field: FieldKey, token: string, t: Translator) => (token === '*' ? t('ui.clearField', { field }) : t('fix.use', { token }))
+/** A fix for a field: a token of `*` clears it; any other token is used as written. */
+const fixFor = (field: FieldKey, token: string, t: Translator, changes: Changes = { [field]: token }): NonNullable<Message['fix']> => ({
+    label: token === '*' ? t('ui.clearField', { field }) : t('fix.use', { token }),
+    changes,
+    field,
+})
+
+/** A field's error or warning, under the field's name, with its fix. */
+const fieldMessage = (field: FieldKey, issue: FieldIssue, bad: boolean, t: Translator): Message => ({
+    text: t('message.fieldError', { label: t('field.label', { field }), error: issueText(issue, t) }),
+    bad,
+    ...(issue.fix ? { fix: fixFor(field, issue.fix, t) } : {}),
+})
 
 /** The smallest gap between runs inside an hour, in minutes, or null when it is an hour or more. */
 const shortestGap = (c: Compiled): number | null => {
@@ -58,6 +69,8 @@ export const messageFor = (c: Compiled, t: Translator = english): Message | null
     const profile = c.profile
     const bad = profile.fields.find(key => c.parsed[key]?.error)
     const issue = bad ? c.parsed[bad]?.error : null
+    const warned = profile.fields.find(key => c.parsed[key]?.warning)
+    const warning = warned ? c.parsed[warned]?.warning : null
     const dom = c.parsed.day
     const dow = c.parsed.weekday
     const gap = profile.minInterval ? shortestGap(c) : null
@@ -67,11 +80,7 @@ export const messageFor = (c: Compiled, t: Translator = english): Message | null
     }
 
     if (bad && issue) {
-        return {
-            text: t('message.fieldError', { label: t('field.label', { field: bad }), error: issueText(issue, t) }),
-            bad: true,
-            ...(issue.fix ? { fix: { label: fixLabel(bad, issue.fix, t), changes: { [bad]: issue.fix }, field: bad } } : {}),
-        }
+        return fieldMessage(bad, issue, true, t)
     }
 
     if (c.issue) {
@@ -80,19 +89,12 @@ export const messageFor = (c: Compiled, t: Translator = english): Message | null
         return {
             text: issueText(c.issue, t),
             bad: true,
-            ...(field && token ? { fix: { label: fixLabel(field as FieldKey, token, t), changes: c.issue.fix ?? {}, field: field as FieldKey } } : {}),
+            ...(field && token ? { fix: fixFor(field as FieldKey, token, t, c.issue.fix ?? {}) } : {}),
         }
     }
 
-    const warned = profile.fields.find(key => c.parsed[key]?.warning)
-    const warning = warned ? c.parsed[warned]?.warning : null
-
     if (warned && warning) {
-        return {
-            text: t('message.fieldError', { label: t('field.label', { field: warned }), error: issueText(warning, t) }),
-            bad: false,
-            ...(warning.fix ? { fix: { label: fixLabel(warned, warning.fix, t), changes: { [warned]: warning.fix }, field: warned } } : {}),
-        }
+        return fieldMessage(warned, warning, false, t)
     }
 
     // A restricted day field that still covers every day makes either-may-match targets run every day.
@@ -110,7 +112,7 @@ export const messageFor = (c: Compiled, t: Translator = english): Message | null
                         ? t('warning.questionEvery', { target: profile.label, other })
                         : t('warning.coversEvery', { token: c.raws[key] ?? '', field: key, other }),
                     bad: false,
-                    fix: { label: fixLabel(key, '*', t), changes: { [key]: '*' }, field: key },
+                    fix: fixFor(key, '*', t),
                 }
             }
         }
