@@ -254,7 +254,7 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
         }
 
         if (!match) {
-            return fail('error.invalidPart', { part, field: key })
+            return fail('error.invalidPart', { part: part.toUpperCase(), field: key })
         }
 
         const stepMax = profile.stepLimit === 'max' ? bounds.parseMax : bounds.max - bounds.min + 1
@@ -265,13 +265,13 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
         }
 
         if (match[1] === '*' && match[2] !== undefined) {
-            return fail('error.starRange', { part })
+            return fail('error.starRange', { part: part.toUpperCase() })
         }
 
         if (match[1] === '*' && hasStep && key === 'year' && !profile.yearStarStep) {
             const range = `${bounds.min}-${bounds.max}/${step}`
 
-            return fail('error.stepNeedsRange', { part, example: range }, swap(part, range).toUpperCase())
+            return fail('error.stepNeedsRange', { part: part.toUpperCase(), example: range }, swap(part, range).toUpperCase())
         }
 
         // W names one day, so it can't end a range or take a step, as in 1-5W.
@@ -318,7 +318,7 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
                 const range = `${a}-${Math.max(last, a)}/${step}`
 
                 if (!profile.stepStart || a > last) {
-                    return fail('error.stepNeedsRange', { part, example: range }, swap(part, range).toUpperCase())
+                    return fail('error.stepNeedsRange', { part: part.toUpperCase(), example: range }, swap(part, range).toUpperCase())
                 }
 
                 b = last

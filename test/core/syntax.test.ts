@@ -54,6 +54,7 @@ test('each target explains its own limits, with a fix where one exists', () => {
         [strict, '0 0 9 ? * 1', 'cron-parser can’t use both day fields. Set one to *.', { day: '*' }],
         [strict, '0 0 9 1 * 1', 'cron-parser can’t use both day fields. Set one to *.', { day: '*' }],
         [TARGETS.github, '0 9 abc * *', 'Day of month: “ABC” isn’t a day GitHub Actions understands.', undefined],
+        [TARGETS.vixie, '0 9 * * mon/2', 'Day of week: MON/2 needs a range to step through: 1-6/2.', { weekday: '1-6/2' }],
         // W names one day: it can't end a range, and a target without W says so.
         [TARGETS.croner, '0 9 1-5W * *', 'Day of month: W works on one day, like 15W, not in a range or with a step.', undefined],
         [TARGETS.github, '0 9 1-5W * *', 'Day of month: GitHub Actions doesn’t support W.', undefined],
