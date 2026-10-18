@@ -94,6 +94,13 @@ test('seconds, years and the time zone frame the sentence', () => {
     const croner7 = croner(Cron, { parts: 7 }).profile
 
     assert.equal(describe(c('*/10 0 9 * * *', croner6)), 'Every 10 seconds, at 9:00 AM every day.')
+    // One second joins an exact time; seconds that run every minute or in stepped minutes don't repeat the minute's cadence.
+    assert.equal(describe(c('30 0 9 * * *', croner6)), 'At 9:00:30 AM every day.')
+    assert.equal(describe(c('*/10 * * * * *', croner6)), 'Every 10 seconds.')
+    assert.equal(describe(c('*/10 * 9 * * 1', croner6)), 'Every 10 seconds, during the 9 AM hour, on Mondays.')
+    assert.equal(describe(c('*/10 */5 * * * *', croner6)), 'Every 10 seconds, in every 5th minute.')
+    assert.equal(describe(c('1 * * * * *', croner6)), 'At 1 second past every minute.')
+    assert.equal(describe(c('15 */2 * * * *', croner6)), 'At 15 seconds past the minute, every 2 minutes.')
     assert.equal(describe(c('0 0 0 1 1 * 2030-2032', croner7)), 'At 12:00 AM on the 1st of January, in 2030 through 2032.')
     assert.equal(chipWords(c('0 0 0 1 1 * 2030-2032', croner7)).year, '2030–2032')
     assert.equal(describe(c('0 9 * * 1-5'), { timezone: 'Europe/Berlin' }), 'At 9:00 AM on weekdays (Europe/Berlin).')

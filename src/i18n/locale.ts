@@ -29,8 +29,8 @@ export type Formatter = {
     /** Weekdays, 0 (Sunday) to 6, in the order the week starts. */
     weekOrder: number[]
     t: Translator
-    /** "9:00 AM", or "09:00" on a 24-hour clock. */
-    time: (hour: number, minute: number) => string
+    /** "9:00 AM", or "09:00" on a 24-hour clock; with seconds, "9:00:30 AM". */
+    time: (hour: number, minute: number, second?: number) => string
     /** "9 AM", or a full time on a 24-hour clock, where a bare hour would read as a count. */
     hour: (hour: number) => string
     /** ":05" */
@@ -45,8 +45,8 @@ export type Formatter = {
     cap: (text: string) => string
 }
 
-/** The parts of a date or time to spell: a month and day, or an hour and minute. */
-export type SpellParts = { month?: number; day?: number; hour?: number; minute?: number }
+/** The parts of a date or time to spell: a month and day, or an hour, minute and second. */
+export type SpellParts = { month?: number; day?: number; hour?: number; minute?: number; second?: number }
 
 /** Spells date parts with Intl options, through some date library. Part of an engine; the default spells through Date. */
 export type Spell = (locale: string, options: Intl.DateTimeFormatOptions, parts: SpellParts) => string
@@ -84,8 +84,8 @@ const listFormat = (locale: string, type: Intl.ListFormatType) => {
 }
 
 /** Spells through Date, in UTC so the runtime's own zone can't shift a name. */
-export const spellDate: Spell = (locale, options, { month = 1, day = 1, hour = 0, minute = 0 }) =>
-    dateFormat(locale, options).format(Date.UTC(2001, month - 1, day, hour, minute))
+export const spellDate: Spell = (locale, options, { month = 1, day = 1, hour = 0, minute = 0, second = 0 }) =>
+    dateFormat(locale, options).format(Date.UTC(2001, month - 1, day, hour, minute, second))
 
 /** The locale's usual clock. */
 export const localeHourCycle = (locale: string): HourCycle =>
@@ -121,8 +121,14 @@ export const formatter = (options: FormatterOptions = {}, engine?: Pick<Engine, 
     // Some runtimes put a narrow no-break space before AM; a plain space reads the same everywhere.
     const plain = (text: string) => text.replace(/\u202f/g, ' ')
     // 24-hour clocks pad the hour, 07:30, in every locale; left to Intl, en-GB gives 7:30 and en 07:30.
-    const time = (hour: number, minute: number) =>
-        plain(spell(locale, { hour: twentyFour ? '2-digit' : 'numeric', minute: '2-digit', hourCycle }, { hour, minute }))
+    const time = (hour: number, minute: number, second?: number) =>
+        plain(
+            spell(
+                locale,
+                { hour: twentyFour ? '2-digit' : 'numeric', minute: '2-digit', ...(second === undefined ? {} : { second: '2-digit' }), hourCycle },
+                { hour, minute, ...(second === undefined ? {} : { second }) },
+            ),
+        )
 
     return {
         locale,

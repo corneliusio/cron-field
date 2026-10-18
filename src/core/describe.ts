@@ -55,8 +55,8 @@ export const shape = (p: ParsedField, key: FieldKey): Shape => {
 
 const any = (): ParsedField => ({ ok: true, items: [], set: new Set(), star: true, question: false, error: null })
 
-/** Seconds other than :00, as a lead-in to the rest of the sentence. */
-const secondsPhrase = (p: ParsedField | undefined, f: Formatter): string | null => {
+/** Seconds other than :00: every so many seconds, or at the listed ones. */
+const secondsOf = (p: ParsedField | undefined): { every: number } | { at: number[] } | null => {
     if (!p || (p.set.size === 1 && p.set.has(0))) {
         return null
     }
@@ -64,15 +64,14 @@ const secondsPhrase = (p: ParsedField | undefined, f: Formatter): string | null 
     const s = shape(p, 'second')
 
     if (s.k === 'any') {
-        return f.t('seconds.every', { n: 1 })
+        return { every: 1 }
     }
 
-    if (s.k === 'step' && s.full) {
-        return f.t('seconds.every', { n: s.step })
-    }
-
-    return f.t('seconds.at', { seconds: f.list(s.vals.map(f.second)) })
+    return s.k === 'step' && s.full ? { every: s.step } : { at: sorted(p.set) }
 }
+
+/** "at 30 seconds", "at 15 and 45 seconds": `n` is the one second, else how many, for the plural. */
+const secondsAt = (at: number[], f: Formatter) => ({ seconds: f.list(at.map(String)), n: at.length === 1 ? (at[0] ?? 0) : at.length })
 
 const yearPhrase = (p: ParsedField | undefined, f: Formatter): string | null => {
     if (!p || p.star) {
@@ -123,19 +122,25 @@ export const describe = (c: Compiled, options: DescribeOptions = {}): string | n
     // Minutes that stop before the hour ends, such as 0-20/2, repeat inside each hour rather than running on into the next.
     const minutesBounded = mk.k === 'range' || (mk.k === 'step' && mk.b + mk.step <= 59)
     const span = (a: number, b: number) => ({ start: f.time(a, minutes[0] ?? 0), end: f.time(b, minutes.at(-1) ?? 0) })
-    const seconds = secondsPhrase(c.parsed.second, f)
+    const secs = secondsOf(c.parsed.second)
     const years = yearPhrase(c.parsed.year, f)
+    // One second folds into exact times, as 9:00:30 AM.
+    const second = secs && 'at' in secs && secs.at.length === 1 ? secs.at[0] : undefined
 
     let exactTimes = false
     let trailing = false
+    let seconds = secs && ('every' in secs ? t('seconds.every', { n: secs.every }) : t('seconds.at', secondsAt(secs.at, f)))
     let time: string
 
     /* Time of day */
     if (mk.k === 'any' && hk.k === 'any') {
-        time = t('time.everyNMinutes', { n: 1 })
+        // Seconds that run every minute say so themselves.
+        time = secs ? ('every' in secs ? (seconds ?? '') : t('seconds.pastEveryMinute', secondsAt(secs.at, f))) : t('time.everyNMinutes', { n: 1 })
+        seconds = null
     } else if (minutes.length * hours.length <= 6) {
         exactTimes = true
-        time = t('time.at', { times: f.list(hours.flatMap(h => minutes.map(m => f.time(h, m)))) })
+        time = t('time.at', { times: f.list(hours.flatMap(h => minutes.map(m => f.time(h, m, second)))) })
+        seconds = second === undefined ? seconds : null
     } else if (mk.k === 'one') {
         const atMinute = (base: string) => {
             if (mk.v === 0) {
@@ -167,8 +172,14 @@ export const describe = (c: Compiled, options: DescribeOptions = {}): string | n
     } else {
         let base: string
 
-        if (mk.k === 'any') {
+        if (mk.k === 'any' && secs) {
+            base = 'every' in secs ? (seconds ?? '') : t('seconds.pastEveryMinute', secondsAt(secs.at, f))
+            seconds = null
+        } else if (mk.k === 'any') {
             base = t('time.everyNMinutes', { n: 1 })
+        } else if (mk.k === 'step' && secs && 'every' in secs && mk.full) {
+            // Every so many seconds, every 5 minutes, would read as two cadences; the minutes say when the seconds run.
+            base = t('time.inEveryNthMinute', { n: mk.step, nth: f.ordinal(mk.step) })
         } else if (mk.k === 'step') {
             base = t('time.everyNMinutes', { n: mk.step })
 

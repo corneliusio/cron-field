@@ -98,14 +98,14 @@ export const temporalEngine: Engine = {
 
         return { y: at.year, mo: at.month, d: at.day, h: at.hour, mi: at.minute, s: at.second }
     },
-    spell: (locale, { hourCycle, ...options }, { month = 1, day = 1, hour, minute = 0 }) => {
+    spell: (locale, { hourCycle, ...options }, { month = 1, day = 1, hour, minute = 0, second = 0 }) => {
         const tag = hourCycle ? new Intl.Locale(locale, { hourCycle }).toString() : locale
 
         if (hour === undefined) {
             return temporal().PlainDate.from({ year: 2001, month, day }).toLocaleString(tag, options)
         }
 
-        const text = new (temporal().PlainTime)(hour, minute).toLocaleString(tag, options)
+        const text = new (temporal().PlainTime)(hour, minute, second).toLocaleString(tag, options)
 
         // On a 24-hour clock that reads midnight as 24, the hour shown is 24.
         return options.hour === '2-digit' ? padHour(text, tag, hourCycle === 'h24' && hour === 0 ? 24 : hour) : text
