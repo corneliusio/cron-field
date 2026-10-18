@@ -9,6 +9,7 @@ import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import type { FieldKey } from '../../src/index.ts'
 
 GlobalRegistrator.register({ url: 'http://localhost/' })
+assert.ok(!Reflect.has(HTMLElement.prototype, 'showPopover'), 'happy-dom has popovers now: the stand-in below can go.')
 // Emptying the page first lets elements still in it disconnect while the globals exist. Closing the window also
 // stops Vue's dev-build devtools timer, which would hold the process for 3 s.
 after(async () => {

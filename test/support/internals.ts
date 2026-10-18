@@ -2,6 +2,8 @@
  * happy-dom has no ElementInternals: a stand-in that records what <cron-field> tells its form, and the parts of
  * form association browsers do for it. Element tests only; import it after `dom.ts`.
  */
+import assert from 'node:assert/strict'
+
 export type FormRecord = { value: unknown; flags: ValidityStateFlags; message: string; anchor: HTMLElement | undefined }
 
 const records = new WeakMap<Element, FormRecord>()
@@ -48,6 +50,8 @@ const attach = (element: HTMLElement) => {
 
     return internals as ElementInternals
 }
+
+assert.ok(!Reflect.has(HTMLElement.prototype, 'attachInternals'), 'happy-dom has ElementInternals now: this stand-in can go.')
 
 HTMLElement.prototype.attachInternals = function () {
     return attach(this)

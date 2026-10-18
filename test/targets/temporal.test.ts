@@ -64,6 +64,13 @@ test('the runtime still drops the hour padding the Temporal engine puts back', (
     assert.equal(time, '7:05')
 })
 
+test('the runtime still ignores the hourCycle option for Temporal values, which the Temporal engine puts in the locale tag', () => {
+    const midnight = new Temporal.PlainTime(0, 0).toLocaleString('ja', { hour: 'numeric', minute: '2-digit', hourCycle: 'h12' })
+
+    // When this fails, the option works, and the engine can pass hourCycle as an option rather than as -u-hc- in the tag.
+    assert.equal(midnight, '午前0:00')
+})
+
 test('a Date-based library target works through fromDateTarget', () => {
     const target = fromDateTarget(croner(Cron, { timezone: 'UTC' }))
     const runs = upcoming(target, '0 9 * * 1-5', { from: Temporal.Instant.from('2026-10-16T12:00:00Z'), count: 2 })

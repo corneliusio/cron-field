@@ -44,6 +44,23 @@ const listen = () => {
     return events
 }
 
+test('happy-dom’s innerHTML still connects a custom element before parsing its children, which page() works around', () => {
+    const counts: number[] = []
+
+    customElements.define(
+        'child-probe',
+        class extends HTMLElement {
+            connectedCallback() {
+                counts.push(this.children.length)
+            }
+        },
+    )
+    document.body.innerHTML = '<child-probe><input></child-probe>'
+
+    // When this fails, innerHTML parses children first, as browsers do, and page() can set document.body.innerHTML directly.
+    assert.deepEqual(counts, [0])
+})
+
 test('the fallback input seeds the value and name on first connection; the value attribute wins, and a moved element keeps its edits', () => {
     const element = page('<form><cron-field><input name="schedule" value="0 9 * * 1-5"></cron-field></form>')
 

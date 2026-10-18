@@ -83,6 +83,15 @@ test('a time a DST change skips moves forward by the gap, a repeated one runs on
     }
 })
 
+test('croner still misorders and repeats runs around DST gaps, which upcoming corrects', () => {
+    const raw = (value: string, timezone: string, from: string, count: number) =>
+        new Cron(value, { timezone }).nextRuns(count, new Date(from)).map(date => date.toISOString().slice(11, 16))
+
+    // When these fail, croner orders its runs itself, and inOrder and the refill in upcoming can go.
+    assert.deepEqual(raw('0,20,40 2 * * *', 'Australia/Lord_Howe', '2026-10-03T15:20:00Z', 3), ['15:30', '15:50', '15:40'])
+    assert.deepEqual(raw('*/30 * * * *', 'America/Santiago', '2026-09-06T03:00:00Z', 4), ['03:30', '04:00', '04:30', '04:00'])
+})
+
 test('upcoming puts croner’s runs in order and each once, and still returns as many as asked', () => {
     const target = croner(Cron)
     const times = (value: string, timezone: string, from: string, count: number) =>
