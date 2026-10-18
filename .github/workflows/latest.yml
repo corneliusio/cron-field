@@ -1,0 +1,26 @@
+name: Latest dependencies
+
+on:
+    schedule:
+        - cron: '17 6 * * 1'
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    latest:
+        name: newest versions
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@v7
+            - uses: pnpm/setup@v3
+              with:
+                  version: 11
+                  runtime: node@26
+                  cache: true
+                  require-lockfile: true
+            # Ignores the declared ranges. pnpm 11 skips releases younger than a day (minimumReleaseAge).
+            - run: pnpm update --latest croner cron-parser effect react react-dom @types/react @types/react-dom vue svelte svelte-check happy-dom @happy-dom/global-registrator
+            - run: pnpm verify

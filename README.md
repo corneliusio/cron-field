@@ -54,8 +54,9 @@ import { Cron } from 'croner'
 createCronField(element, { target: croner(Cron, { domAndDow: true, timezone: 'America/Chicago' }) })
 ```
 
-The adapters need croner 10, cron-parser 5 and Effect 4 or later. Earlier majors take other options or return other shapes, and the adapters don't
-detect that.
+The adapters need croner 10, cron-parser 5.10.1 and Effect 4 or later. Earlier majors take other options or return other shapes, and earlier
+cron-parser releases accept lists that name a value twice, such as `0,0` or `0,7` for the weekday, which the field rejects. The adapters don't detect
+either.
 
 With an adapter, the library also validates the value, and upcoming runs come from it. Whether a schedule runs at all is always checked by the
 built-in matcher, which looks 50 years ahead; a schedule with fewer runs in that span returns only those. `describe` replaces the sentence under the
@@ -198,3 +199,6 @@ pnpm lint
 pnpm build    # dist/
 pnpm verify   # all of the above, plus the format check
 ```
+
+Pull requests run `pnpm verify`, and `pnpm check` and `pnpm test` at the lowest supported versions. A weekly job runs `pnpm verify` with the parsers,
+frameworks and happy-dom at their newest releases; when it passes on a new major, widen that peer range by hand.
