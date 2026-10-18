@@ -328,6 +328,8 @@ test('a form reset puts back the first value when the field submits with the for
 
         field.setValue('15 10 * * *')
         form.reset()
+        // A submit straight after the reset sends the restored value.
+        assert.equal(new FormData(form).get('schedule'), name ? expected : null, `name: ${name}`)
         await tick()
         assert.equal(field.value, expected, `name: ${name}`)
         assert.equal(input.value, expected, `name: ${name}`)
@@ -342,6 +344,15 @@ test('a form reset puts back the first value when the field submits with the for
     form.reset()
     await tick()
     assert.ok(root.hasAttribute('data-raw'))
+
+    // A reset that a handler cancels changes nothing.
+    const cancelled = mount({ value: '0 9 * * 1-5', name: 'schedule' })
+
+    cancelled.field.setValue('15 10 * * *')
+    cancelled.form.addEventListener('reset', event => event.preventDefault())
+    cancelled.form.reset()
+    await tick()
+    assert.equal(cancelled.field.value, '15 10 * * *')
 })
 
 test('setOptions re-describes a value that fits the new target, switches to Edit as cron when it doesn’t, and leaves an open menu alone when nothing shows a change', () => {

@@ -81,15 +81,23 @@ test('while the page is still loading, the element waits for its fallback input 
     const element = document.createElement('cron-field') as CronFieldElement
     const fallback = document.createElement('input')
 
+    const form = document.createElement('form')
+
     Object.defineProperty(document, 'readyState', { value: 'loading', configurable: true })
-    document.body.append(element)
+    form.append(element)
+    document.body.append(form)
+    element.setAttribute('name', 'schedule')
     fallback.name = 'schedule'
-    fallback.value = '0 9 * * 1-5'
+    fallback.setAttribute('value', '0 9 * * 1-5')
     element.append(fallback)
+    // Until then the fallback alone submits, and a reset leaves the defaults for setup to read.
+    assert.equal(internalsOf(element).value, null)
+    form.reset()
     Reflect.deleteProperty(document, 'readyState')
     document.dispatchEvent(new Event('DOMContentLoaded'))
 
     assert.deepEqual([element.value, element.name, tokens(element)], ['0 9 * * 1-5', 'schedule', '0 9 * * 1-5'])
+    assert.equal(internalsOf(element).value, '0 9 * * 1-5')
 })
 
 test('a value set before connection, or even before the element is defined, survives', () => {

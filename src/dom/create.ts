@@ -905,16 +905,15 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
             close()
         }
     })
-    // The form resets its controls after this event, blanking the text input. Afterwards the field puts its own back: its first
-    // value when it submits with the form, else the value it holds.
+    // A reset puts back the field's first value when it submits with the form, else keeps the value it holds, and the mode it
+    // opened in. That happens here, before the form resets its controls, so a submit straight after sees it; the form then
+    // blanks the text input, which gets the value back once it has.
     listen('reset', event => {
-        if (event.target instanceof HTMLFormElement && event.target.contains(root)) {
-            setTimeout(() => {
-                // The mode goes back to how the field opened too.
-                raw = opensRaw
-                forced = false
-                replace(options.name ? first : value)
-            })
+        if (!event.defaultPrevented && event.target instanceof HTMLFormElement && event.target.contains(root)) {
+            raw = opensRaw
+            forced = false
+            replace(options.name ? first : value)
+            setTimeout(() => (input.value = value))
         }
     })
     listen('keydown', event => {

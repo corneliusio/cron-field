@@ -196,7 +196,12 @@ export class CronFieldElement extends HTMLElement {
     }
 
     formResetCallback() {
-        this.value = this.#default
+        // Before setup there is no default yet; setup reads it from the attribute or the fallback input, as a reset asks.
+        if (this.#started) {
+            this.value = this.#default
+        } else {
+            this.#assigned = false
+        }
     }
 
     /** Back navigation and autofill bring the submitted value back. */
@@ -264,7 +269,8 @@ export class CronFieldElement extends HTMLElement {
         const anchor =
             this.querySelector<HTMLElement>('[data-part="input"]:not([hidden])') ?? this.querySelector<HTMLElement>('[data-part="chip"]') ?? undefined
 
-        this.#internals.setFormValue(this.value)
+        // Until setup reads the fallback input, the fallback submits the value.
+        this.#internals.setFormValue(this.#started ? this.value : null)
         this.#internals.setValidity(message ? { customError: true } : {}, message, anchor)
     }
 }
