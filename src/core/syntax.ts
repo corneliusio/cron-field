@@ -3,7 +3,7 @@
  * grammar is the target's: its fields, numbering, names, `?`, steps and extensions. Weekdays are
  * 0 (Sunday) to 6 internally whatever the target counts from.
  */
-import type { ErrorId } from '../i18n/catalog.ts'
+import type { ErrorId, WarningId } from '../i18n/catalog.ts'
 import { FIELDS, type FieldKey, type FieldSpec } from './fields.ts'
 import { has, type Extension, type TargetProfile } from './targets.ts'
 
@@ -16,9 +16,18 @@ export type SpecialItem =
     | { t: 'nth'; dow: number; k: number }
 export type Item = RangeItem | SpecialItem
 /** A problem as a message id and its params, so it can be shown in any language. */
-export type Issue = { id: ErrorId; params: Readonly<Record<string, string | number>> }
+export type Issue = { id: ErrorId | WarningId; params: Readonly<Record<string, string | number>> }
 export type FieldIssue = Issue & { fix: string | null }
-export type ParsedField = { ok: boolean; items: Item[]; set: Set<number>; star: boolean; question: boolean; error: FieldIssue | null }
+export type ParsedField = {
+    ok: boolean
+    items: Item[]
+    set: Set<number>
+    star: boolean
+    question: boolean
+    error: FieldIssue | null
+    /** Something the target accepts but runs differently than it may read, with a fix. */
+    warning?: FieldIssue
+}
 export type CrossIssue = Issue & { field: FieldKey; fix: Partial<Record<FieldKey, string>> | null }
 
 export type Compiled = {
@@ -54,9 +63,13 @@ export const dowNumber = (dow: number, profile: TargetProfile) => dow + profile.
 
 const toInternal = (key: FieldKey, n: number, profile: TargetProfile) => (key === 'weekday' && profile.weekdayBase === 1 ? n - 1 : n)
 
-const issue = (id: ErrorId, params: Issue['params'] = {}, fix: string | null = null): FieldIssue => ({ id, params, fix })
+const issue = (id: ErrorId | WarningId, params: Issue['params'] = {}, fix: string | null = null): FieldIssue => ({ id, params, fix })
 
-const parseValue = (text: string, field: FieldSpec, profile: TargetProfile): { n: number; named?: boolean } | { error: Issue; short?: string } => {
+const parseValue = (
+    text: string,
+    field: FieldSpec,
+    profile: TargetProfile,
+): { n: number; named?: boolean } | { error: Issue & { id: ErrorId }; short?: string } => {
     if (/^\d+$/.test(text)) {
         return { n: Number(text) }
     }
@@ -74,7 +87,7 @@ const parseValue = (text: string, field: FieldSpec, profile: TargetProfile): { n
         }
     }
 
-    return { error: { id: 'error.unknownValue', params: { value: text, field: field.key } } }
+    return { error: { id: 'error.unknownValue', params: { value: text.toUpperCase(), field: field.key, target: profile.label } } }
 }
 
 const unsupported = (part: string, profile: TargetProfile) => issue('error.unsupported', { target: profile.label, token: part.toUpperCase() })
@@ -202,13 +215,12 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
             return fail('error.questionDays', {}, '*')
         }
 
-        // croner reads ? as a value rather than as *, so the day fields would combine with every day; strict cron-parser counts it
-        // as a day field in use.
         if (profile.question === 'none') {
             return fail('error.questionStar', {}, '*')
         }
 
-        result.star = true
+        // Every day either way; where ? counts as set, it isn't the * that leaves the other day field to decide.
+        result.star = profile.question !== 'value'
         result.items.push({ t: 'range', a: field.min, b: field.max, step: 1 })
     }
 
@@ -245,9 +257,10 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
             return fail('error.invalidPart', { part, field: key })
         }
 
-        const stepMax = profile.stepLimit === 'max' ? bounds.max : bounds.max - bounds.min + 1
+        const stepMax = profile.stepLimit === 'max' ? bounds.parseMax : bounds.max - bounds.min + 1
+        const longStep = hasStep && step > stepMax
 
-        if (hasStep && (step < 1 || step > stepMax)) {
+        if (hasStep && (step < 1 || (longStep && !profile.longSteps))) {
             return fail('error.stepRange', { max: stepMax })
         }
 
@@ -259,6 +272,13 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
             const range = `${bounds.min}-${bounds.max}/${step}`
 
             return fail('error.stepNeedsRange', { part, example: range }, swap(part, range).toUpperCase())
+        }
+
+        // W names one day, so it can't end a range or take a step, as in 1-5W.
+        if (key === 'day' && [match[1], match[2]].some(value => value && /^\d+w$/.test(value))) {
+            result.error = has(profile, 'nearest') ? issue('error.nearestAlone') : unsupported('w', profile)
+
+            return result
         }
 
         if (match[1] !== '*') {
@@ -325,6 +345,10 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
 
                 continue
             }
+        }
+
+        if (longStep) {
+            result.warning ??= issue('warning.longStep', { step, target: profile.label, start: a }, swap(part, String(a)).toUpperCase())
         }
 
         result.items.push({ t: 'range', a: toInternal(key, a, profile), b: toInternal(key, b, profile), step })

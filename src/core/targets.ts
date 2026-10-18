@@ -31,8 +31,12 @@ export type TargetProfile = {
      */
     sundaySeven: 'none' | 'ranges' | 'steps'
     days: DayLogic
-    /** `required`: the unused day field must be `?`. `allowed`: `?` reads as `*` in the day fields. `none`: no `?`. */
-    question: 'none' | 'allowed' | 'required'
+    /**
+     * `required`: the unused day field must be `?`. `allowed`: `?` reads as `*` in the day fields. `value`: `?` reads as every day
+     * but counts as set, as in croner, where it makes either-may-match run every day, and strict cron-parser, where it is a day
+     * field in use. `none`: no `?`.
+     */
+    question: 'none' | 'allowed' | 'value' | 'required'
     names: boolean
     macros: Record<string, string>
     /** Reads a shortcut only as `macros` writes it, as cron-parser does; otherwise `@DAILY` reads as `@daily`. */
@@ -44,8 +48,13 @@ export type TargetProfile = {
     noSteps: FieldKey[]
     /** Accepts a step on `*` in the year field. croner refuses it: it counts the step from year 0. */
     yearStarStep: boolean
-    /** `count`: a step can be as large as the field has values, 60 for minutes. `max`: no larger than the field's highest value, 59, as in Effect. */
+    /**
+     * `count`: a step can be as large as the field has values, 60 for minutes. `max`: no larger than the field's highest value, 59, as
+     * in Effect, where the day of week's is 7.
+     */
     stepLimit: 'count' | 'max'
+    /** Accepts a step longer than the field, which runs at its start alone, as cron-parser does; the field warns that it does. */
+    longSteps: boolean
     /** Accepts ranges that wrap past the field's end, such as `22-2` or `FRI-MON`. */
     wrapRanges: boolean
     /** Extensions that have to be the whole field: Quartz takes no L, W or # in a list, cron-parser and EventBridge no #. */
@@ -94,6 +103,7 @@ const base = (name: string, label: string, rest: Partial<TargetProfile> = {}): T
     noSteps: [],
     yearStarStep: true,
     stepLimit: 'count',
+    longSteps: false,
     wrapRanges: false,
     alone: [],
     unique: false,
@@ -103,7 +113,7 @@ const base = (name: string, label: string, rest: Partial<TargetProfile> = {}): T
 
 export const TARGETS: Record<TargetName, TargetProfile> = {
     'vixie': base('vixie', 'Cron', { days: 'vixie' }),
-    'croner': base('croner', 'croner', { extensions: ALL_EXTENSIONS, yearStarStep: false }),
+    'croner': base('croner', 'croner', { question: 'value', extensions: ALL_EXTENSIONS, yearStarStep: false }),
     'cron-parser': base('cron-parser', 'cron-parser', {
         sundaySeven: 'steps',
         question: 'allowed',
@@ -111,6 +121,7 @@ export const TARGETS: Record<TargetName, TargetProfile> = {
         stepStart: true,
         alone: ['nth'],
         unique: true,
+        longSteps: true,
         macros: { ...STANDARD_MACROS, '@weekdays': '0 0 * * 1-5', '@weekends': '0 0 * * 0,6' },
         caseSensitiveMacros: true,
     }),

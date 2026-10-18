@@ -35,7 +35,7 @@ export const cronParser = (Parser: CronExpressionParserClass, options: CronParse
         profile: {
             ...TARGETS['cron-parser'],
             fields: fieldsFor(seconds),
-            ...(strict ? { days: 'exclusive' as const, question: 'none' as const } : {}),
+            ...(strict ? { days: 'exclusive' as const, question: 'value' as const } : {}),
             ...(timezone ? { timezone } : {}),
         },
         validate: value => {

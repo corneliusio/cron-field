@@ -21,7 +21,6 @@ test('rejects forms croner refuses or runs differently, and offers a fix where o
         ['0 0 * 11-2/2 *', 'Months: 11-2 runs backwards. Cron needs it split in two.', { month: '11,1-2/2' }],
         ['5/15 * * * *', 'Minutes: 5/15 needs a range to step through: 5-59/15.', { minute: '5-59/15' }],
         ['0 0 * * 6-0', 'Day of week: Write Sunday as 7 at the end of a range.', { weekday: '6-7' }],
-        ['0 9 ? * 1', 'Day of month: Use * here.', { day: '*' }],
         ['0 0 1,LW * *', 'Day of month: LW has to be the whole field.', { day: 'LW' }],
         ['0 9 * * monday', 'Day of week: Cron only reads three-letter names. Use MON.', { weekday: 'MON' }],
         ['0 9 L-3 * *', 'Day of month: Counting back from the last day (L-3) isn’t supported. Use L, or list the days.', undefined],
@@ -44,15 +43,20 @@ test('each target explains its own limits, with a fix where one exists', () => {
         [TARGETS.eventbridge, '0 9 ? * 2,L *', 'Day of week: EventBridge needs L on its own, with nothing else in the field.', undefined],
         [TARGETS['cron-parser'], '0 0 1-10,5 * *', 'Day of month: 5 appears more than once. cron-parser allows each value only once.', undefined],
         [TARGETS.effect, '*/60 * * * *', 'Minutes: A step has to be 1 to 59.', undefined],
-        [TARGETS.effect, '0 0 * * */7', 'Day of week: A step has to be 1 to 6.', undefined],
+        // Effect reads 7 as Sunday in steps too, so */7 is Sundays alone and the longest weekday step.
+        [TARGETS.effect, '0 0 * * */8', 'Day of week: A step has to be 1 to 7.', undefined],
         // A step from Sunday written as 7 is Sunday alone; croner with sloppyRanges accepts 7/2 but never runs it.
         [TARGETS.vixie, '0 0 * * 7/2', 'Day of week: 7/2 needs a range to step through: 7-7/2.', { weekday: '7-7/2' }],
         [croner(Cron, { sloppyRanges: true }).profile, '0 0 * * 7/2', 'Day of week: 7/2 needs a range to step through: 7-7/2.', { weekday: '7-7/2' }],
         // croner counts a year step on * from year 0.
         [croner(Cron, { parts: 7 }).profile, '0 0 0 1 1 * */2', 'Years: */2 needs a range to step through: 1-9999/2.', { year: '1-9999/2' }],
         // Strict cron-parser counts ? as a day field in use.
-        [strict, '0 0 9 ? * 1', 'Day of month: Use * here.', { day: '*' }],
+        [strict, '0 0 9 ? * 1', 'cron-parser can’t use both day fields. Set one to *.', { day: '*' }],
         [strict, '0 0 9 1 * 1', 'cron-parser can’t use both day fields. Set one to *.', { day: '*' }],
+        [TARGETS.github, '0 9 abc * *', 'Day of month: “ABC” isn’t a day GitHub Actions understands.', undefined],
+        // W names one day: it can't end a range, and a target without W says so.
+        [TARGETS.croner, '0 9 1-5W * *', 'Day of month: W works on one day, like 15W, not in a range or with a step.', undefined],
+        [TARGETS.github, '0 9 1-5W * *', 'Day of month: GitHub Actions doesn’t support W.', undefined],
     ]
 
     for (const [profile, value, expected, changes] of cases) {
@@ -71,6 +75,36 @@ test('warns when a restricted day field still covers every day', () => {
     assert.equal(message?.text, '1-31 covers every day of the month, so the day of week field is ignored.')
     assert.deepEqual(message?.fix?.changes, { day: '*' })
     assert.equal(describe(c('0 0 1-31 * 1')), 'At 12:00 AM every day.')
+})
+
+test('accepts what a target runs differently than it reads, and warns with what it runs', () => {
+    const cases: [TargetProfile, string, string, Record<string, string>, string][] = [
+        // croner reads ? as every day, and either day field matching is enough.
+        [
+            TARGETS.croner,
+            '0 9 ? * 1',
+            'croner reads ? as every day, so the day of week field is ignored and this runs every day.',
+            { day: '*' },
+            'At 9:00 AM every day.',
+        ],
+        // cron-parser runs a step longer than the field at its start alone.
+        [
+            TARGETS['cron-parser'],
+            '*/90 * * * *',
+            'Minutes: A step of 90 is longer than the field, so cron-parser runs it only at 0.',
+            { minute: '0' },
+            'Every hour, on the hour.',
+        ],
+    ]
+
+    for (const [profile, value, expected, changes, sentence] of cases) {
+        const message = messageFor(c(value, profile))
+
+        assert.deepEqual([message?.bad, message?.text, message?.fix?.changes, describe(c(value, profile))], [false, expected, changes, sentence], value)
+    }
+
+    // Where both day fields must match, ? reads as written.
+    assert.equal(messageFor(c('0 9 ? * 1', croner(Cron, { domAndDow: true }).profile)), null)
 })
 
 test('reads the shortcuts a target knows, and tells an unknown shortcut from a wrong field count', () => {

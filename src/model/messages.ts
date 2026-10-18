@@ -84,6 +84,17 @@ export const messageFor = (c: Compiled, t: Translator = english): Message | null
         }
     }
 
+    const warned = profile.fields.find(key => c.parsed[key]?.warning)
+    const warning = warned ? c.parsed[warned]?.warning : null
+
+    if (warned && warning) {
+        return {
+            text: t('message.fieldError', { label: t('field.label', { field: warned }), error: issueText(warning, t) }),
+            bad: false,
+            ...(warning.fix ? { fix: { label: fixLabel(warned, warning.fix, t), changes: { [warned]: warning.fix }, field: warned } } : {}),
+        }
+    }
+
     // A restricted day field that still covers every day makes either-may-match targets run every day.
     if (dom && dow && dayLogic(c) === 'or') {
         for (const [key, other] of [
@@ -94,7 +105,10 @@ export const messageFor = (c: Compiled, t: Translator = english): Message | null
 
             if (everyDay(p, key)) {
                 return {
-                    text: t('warning.coversEvery', { token: c.raws[key] ?? '', field: key, other }),
+                    // ? reads as every day only on targets where it counts as set, so it gets words of its own.
+                    text: p.question
+                        ? t('warning.questionEvery', { target: profile.label, other })
+                        : t('warning.coversEvery', { token: c.raws[key] ?? '', field: key, other }),
                     bad: false,
                     fix: { label: fixLabel(key, '*', t), changes: { [key]: '*' }, field: key },
                 }

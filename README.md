@@ -61,6 +61,10 @@ With an adapter, the library also validates the value, and upcoming runs come fr
 built-in matcher, which looks 50 years ahead; a schedule with fewer runs in that span returns only those. `describe` replaces the sentence under the
 field, for another language or another describer.
 
+Where a library runs a value differently than it reads, the field accepts it, describes what actually runs, and warns with a fix: croner reads `?`
+as every day, so `0 9 ? * 1` runs daily, and cron-parser runs `*/90` in the minutes only at :00. A value the library accepts but never runs is an
+error.
+
 `hourCycle` sets how times read in chip labels, hour presets and the sentence: `h12` (the default, "9:00 AM"), `h11`, `h23` ("09:00") or `h24`, as
 in `Intl`. On `<cron-field>` it is the `hourcycle` attribute.
 

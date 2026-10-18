@@ -43,7 +43,10 @@ export const MESSAGES = {
     'fix.use': 'Use {token}',
     'warning.coversEvery':
         '{token} covers every {field, select, day {day of the month} other {day of the week}}, so the {other, select, day {day of month} other {day of week}} field is ignored.',
+    'warning.questionEvery':
+        '{target} reads ? as every day, so the {other, select, day {day of month} other {day of week}} field is ignored and this runs every day.',
     'warning.minInterval': '{target} runs a schedule at most every {minutes} minutes.',
+    'warning.longStep': 'A step of {step} is longer than the field, so {target} runs it only at {start}.',
     'error.engine': '{target} can’t run this schedule: {detail}',
     'never.monthLacks': '{count, plural, one {{months} never has a {day}.} other {{months} never have a {day}.}}',
     'never.pastYears':
@@ -152,7 +155,7 @@ export const MESSAGES = {
     'error.starRange': '“{part}” mixes * with a range. Use one or the other.',
     'error.threeLetters': 'Cron only reads three-letter names. Use {short}.',
     'error.unknownValue':
-        '“{value}” isn’t a {field, select, second {second} minute {minute} hour {hour} day {day} month {month} weekday {day of the week} other {year}} cron understands.',
+        '“{value}” isn’t a {field, select, second {second} minute {minute} hour {hour} day {day} month {month} weekday {day of the week} other {year}} {target} understands.',
     'error.noNames': '{target} doesn’t read names. Use numbers.',
     'error.outOfRange':
         '{value} is out of range. {field, select, second {Seconds} minute {Minutes} hour {Hours} day {Days} month {Months} weekday {Days of the week} other {Years}} go from {min} to {max}.',
@@ -165,6 +168,7 @@ export const MESSAGES = {
     'error.lastOffsetRange': 'L- can count back 1 to 30 days.',
     'error.lwWhole': 'LW has to be the whole field.',
     'error.nearestRange': 'W needs a day from 1 to 31, like 15W.',
+    'error.nearestAlone': 'W works on one day, like 15W, not in a range or with a step.',
     'error.dowLNeedsDay': 'In the day-of-week field, L needs a day: {example} is the last Friday.',
     'error.notWeekday': '“{value}” isn’t a day of the week. Use {min}–{max}{names, select, yes { or SUN–SAT} other {}}.',
     'error.specialAlone': '{target} needs {token} on its own, with nothing else in the field.',
@@ -176,3 +180,4 @@ export const MESSAGES = {
 
 export type MessageId = keyof typeof MESSAGES
 export type ErrorId = Extract<MessageId, `error.${string}` | `never.${string}`>
+export type WarningId = Extract<MessageId, `warning.${string}`>
