@@ -128,6 +128,11 @@
     white-space: nowrap;
 }
 
+:where(.cron-field [data-chip-width='equal'] > [data-part='chip']) {
+    flex: 1 1 0%;
+    min-width: 0;
+}
+
 :where(.cron-field [data-part='chip']:not([data-any])) {
     background-color: color-mix(in srgb, currentColor 8%, transparent);
 }

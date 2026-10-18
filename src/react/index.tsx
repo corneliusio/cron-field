@@ -41,6 +41,7 @@ export const CronField = ({
     describe,
     parts,
     presets,
+    chipWidth,
     translate,
 }: CronFieldProps) => {
     const element = useRef<HTMLDivElement>(null)
@@ -49,7 +50,22 @@ export const CronField = ({
     const controlled = useRef(value)
     const [mounted, setMounted] = useState(false)
     const classes = ['cron-field', className].filter(Boolean).join(' ')
-    const options: CronFieldOptions = { target, label, labelledBy, name, disabled, timezone, hourCycle, locale, weekStart, describe, parts, presets, translate }
+    const options: CronFieldOptions = {
+        target,
+        label,
+        labelledBy,
+        name,
+        disabled,
+        timezone,
+        hourCycle,
+        locale,
+        weekStart,
+        describe,
+        parts,
+        presets,
+        chipWidth,
+        translate,
+    }
 
     useImperativeHandle<CronFieldInstance | null, CronFieldInstance | null>(ref, () => field.current, [mounted])
 
@@ -93,7 +109,7 @@ export const CronField = ({
 
     useIsomorphicLayoutEffect(() => {
         field.current?.setOptions(options)
-    }, [target, label, labelledBy, name, disabled, timezone, hourCycle, locale, weekStart, describe, parts, presets, translate])
+    }, [target, label, labelledBy, name, disabled, timezone, hourCycle, locale, weekStart, describe, parts, presets, chipWidth, translate])
 
     return (
         <>

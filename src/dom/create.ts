@@ -58,6 +58,8 @@ export type CronFieldOptionsOf<T> = {
     parts?: Parts | undefined
     /** Preset tokens per field, replacing the defaults or, as a function, built from them; see `Presets`. */
     presets?: Presets | undefined
+    /** `content` (default): chips share the row by the length of their token. `equal`: every chip gets the same share. */
+    chipWidth?: 'content' | 'equal' | undefined
     onChange?: ((value: string, detail: ChangeDetail) => void) | undefined
 }
 
@@ -798,6 +800,7 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
         mark(labelEl, 'label')
         mark(toggle, 'mode-toggle', { open: raw })
 
+        chipsEl.dataset.chipWidth = options.chipWidth ?? 'content'
         box.hidden = raw
         box.toggleAttribute('data-invalid', invalid)
         chipsEl.setAttribute('aria-labelledby', labelledBy)

@@ -132,6 +132,9 @@ With Tailwind v4, import the theme below utilities: `@import 'cron-field/theme.c
 
 Sizes follow the field's font size. Light and dark follow the inherited `color-scheme`.
 
+`chipWidth` sets how chips share the row: `content` (the default) sizes them by the length of their token, and `equal` gives every chip the same
+width whatever its value. On `<cron-field>` it is the `chipwidth` attribute.
+
 ### Tokens
 
 Set them anywhere: on `:root`, a wrapper, or the field. Each falls back to a common theme variable, then to the theme's own values.

@@ -8,7 +8,7 @@ import type { TargetName } from '../core/targets.ts'
  *     <cron-field name="schedule" value="0 9 * * 1-5" target="github"><input name="schedule" value="0 9 * * 1-5"></cron-field>
  *
  * A child input is the fallback before the script loads; the element takes its name and value.
- * Attributes: value, target, label, labelledby, name, disabled, timezone, hourcycle, locale, weekstart. Adapter targets,
+ * Attributes: value, target, label, labelledby, name, disabled, timezone, hourcycle, locale, weekstart, chipwidth. Adapter targets,
  * `describe`, `parts`, `presets` and `translateMessage` (the `translate` option) are properties.
  */
 import { createCronField, type ChangeDetail, type CronFieldInstance, type CronFieldOptions } from '../dom/create.ts'
@@ -20,7 +20,7 @@ import type { Status } from '../model/messages.ts'
 type Extra = Pick<CronFieldOptions, 'describe' | 'parts' | 'presets' | 'translate' | 'target'>
 
 const HOUR_CYCLES: HourCycle[] = ['h11', 'h12', 'h23', 'h24']
-const ATTRIBUTES = ['value', 'target', 'label', 'labelledby', 'name', 'disabled', 'timezone', 'hourcycle', 'locale', 'weekstart'] as const
+const ATTRIBUTES = ['value', 'target', 'label', 'labelledby', 'name', 'disabled', 'timezone', 'hourcycle', 'locale', 'weekstart', 'chipwidth'] as const
 
 export class CronFieldElement extends HTMLElement {
     static formAssociated = true
@@ -163,6 +163,7 @@ export class CronFieldElement extends HTMLElement {
             hourCycle: hourCycle && HOUR_CYCLES.includes(hourCycle) ? hourCycle : undefined,
             locale: get('locale'),
             weekStart: weekStart >= 0 && weekStart <= 6 ? weekStart : undefined,
+            chipWidth: get('chipwidth') === 'equal' ? 'equal' : undefined,
             // Form-associated elements match :disabled for their own attribute and for a disabled fieldset.
             disabled: this.matches(':disabled'),
         }

@@ -27,6 +27,7 @@ export const CronField = defineComponent({
         describe: { type: Function as PropType<CronFieldOptions['describe']>, default: undefined },
         parts: { type: Object as PropType<CronFieldOptions['parts']>, default: undefined },
         presets: { type: Object as PropType<CronFieldOptions['presets']>, default: undefined },
+        chipWidth: { type: String as PropType<CronFieldOptions['chipWidth']>, default: undefined },
         translate: { type: Function as PropType<CronFieldOptions['translate']>, default: undefined },
     },
     emits: {
@@ -49,6 +50,7 @@ export const CronField = defineComponent({
             describe: props.describe,
             parts: props.parts,
             presets: props.presets,
+            chipWidth: props.chipWidth,
             translate: props.translate,
         })
 
@@ -98,6 +100,7 @@ export const CronField = defineComponent({
                 props.describe,
                 props.parts,
                 props.presets,
+                props.chipWidth,
                 props.translate,
             ],
             () => field.value?.setOptions(options()),
