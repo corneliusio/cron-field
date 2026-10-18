@@ -59,12 +59,12 @@
         "fmt": "oxfmt --write .",
         "fmt:check": "oxfmt --check .",
         "lint": "oxlint",
-        "test": "TZ=America/Chicago node --test 'test/**/*.test.ts'"
+        "test": "TZ=America/Chicago node --test 'test/**/*.test.ts'",
+        "verify": "pnpm check && pnpm lint && pnpm fmt:check && pnpm test && pnpm build"
     },
     "devDependencies": {
         "@types/node": "^26.6.5",
         "@types/react": "^19.3.0",
-        "@types/react-dom": "^19.3.0",
         "@typescript/native": "npm:typescript@^7.0.2",
         "cron-parser": "^5.10.2",
         "croner": "^10.0.1",
@@ -72,7 +72,6 @@
         "oxfmt": "^0.73.0",
         "oxlint": "^1.88.0",
         "react": "^19.3.1",
-        "react-dom": "^19.3.1",
         "svelte": "^5.57.2",
         "svelte-check": "^4.7.7",
         "typescript": "^6.0.3",
