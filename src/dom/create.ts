@@ -107,6 +107,15 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...
     return element
 }
 
+/** Whether two `presets` options are the same: lists by content, which wrappers pass anew on each render, and functions by identity. */
+const samePresets = (a: Presets | undefined, b: Presets | undefined) =>
+    [...new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})])].every(key => {
+        const x = a?.[key as FieldKey]
+        const y = b?.[key as FieldKey]
+
+        return typeof x === 'function' || typeof y === 'function' ? x === y : JSON.stringify(x) === JSON.stringify(y)
+    })
+
 /** `aria-invalid` needs the word: a bare attribute reads as false. */
 const setInvalid = (element: HTMLElement, invalid: boolean) => {
     if (invalid) {
@@ -951,7 +960,7 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
                 key === 'target'
                     ? !sameProfile
                     : key === 'presets'
-                      ? JSON.stringify(next.presets) !== JSON.stringify(options.presets)
+                      ? !samePresets(next.presets, options.presets)
                       : key !== 'onChange' && key !== 'defaultMode' && next[key] !== options[key],
             )
 

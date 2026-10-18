@@ -397,6 +397,21 @@ test('setOptions re-describes a value that fits the new target, switches to Edit
     assert.ok(root.hasAttribute('data-raw'))
 })
 
+test('setOptions shows new presets in an open menu: lists by content, functions by identity', () => {
+    const { root, field } = mount({ value: '0 9 * * *', presets: { hour: () => [{ token: '9', label: 'Old' }] } })
+    const labels = () => [...root.querySelectorAll('[data-part="preset"]')].map(preset => preset.textContent)
+
+    key(chip(root, 'hour'), 'ArrowDown')
+    assert.deepEqual(labels(), ['Old'])
+
+    field.setOptions({ presets: { hour: () => [{ token: '17', label: 'New' }] } })
+    assert.deepEqual(labels(), ['New'])
+
+    field.setOptions({ presets: { hour: ['12'] } })
+    field.setOptions({ presets: { hour: ['12'] } })
+    assert.deepEqual(labels(), ['At 12 PM'])
+})
+
 test('a disabled field closes its menu, ignores presets and keys, and drops out of the form', () => {
     const { form, root, field } = mount({ value: '0 9 * * 1-5', name: 'schedule' })
 
