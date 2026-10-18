@@ -20,7 +20,7 @@ type MatchOptions = { from: number; count: number; timezone?: string | undefined
 /** Years searched past the start when the schedule has no year field: long enough for Feb 29 on a given weekday. */
 const HORIZON_YEARS = 50
 /** More than any offset change, so wall times scanned this far past the runs found can't fall before them. */
-const SETTLE = 3 * 60 * 60 * 1000
+export const SETTLE = 3 * 60 * 60 * 1000
 // Sakamoto's method: a month's offset in the weekday cycle.
 const MONTH_SHIFT = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4]
 

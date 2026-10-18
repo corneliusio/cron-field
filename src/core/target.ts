@@ -2,7 +2,8 @@
  * A target as the field uses it: the syntax profile, plus the library that runs the job when an adapter
  * supplies one. Without a library, validation and previews come from the built-in parser and matcher.
  */
-import { nextRuns as builtInRuns, runCount, type RunsOptions } from './schedule.ts'
+import { dateEngine } from './engine.ts'
+import { nextRuns as builtInRuns, runCount, SETTLE, type RunsOptions } from './schedule.ts'
 import { compile } from './syntax.ts'
 import { TARGETS, type TargetName, type TargetProfile } from './targets.ts'
 
@@ -45,13 +46,30 @@ export const resolveTarget = (input: TargetInput = DEFAULT_TARGET): Target => re
 const inOrder = <T>(runs: T[], from: number, time: (run: T) => number): T[] =>
     [...new Map(runs.filter(run => time(run) > from).map(run => [time(run), run])).values()].sort((a, b) => time(a) - time(b))
 
-/** A library's next `count` runs after `from`, in order and each once. When repeats leave a full batch short, it asks again for twice as many, twice at most. */
-export const libraryRuns = <T>(next: (count: number) => T[], from: number, count: number, time: (run: T) => number): T[] => {
+/** The zone's offset from UTC at `time`. Engines agree on it, so the Date one serves both entries. */
+const offsetAt = (time: number, timezone: string | undefined) => {
+    const { y, mo, d, h, mi, s } = dateEngine.wall(time, timezone)
+
+    return Date.UTC(y, mo - 1, d, h, mi, s) - Math.floor(time / 1000) * 1000
+}
+
+/**
+ * A library's next `count` runs after `from`, in order and each once, asking again, twice at most, when a full batch falls short.
+ * It is short when repeats leave fewer runs than wanted, or when the zone shifts before the last run wanted and the batch ends less
+ * than `SETTLE` past it: a run the library puts out of order in a DST gap can come after that. The next batch is twice as large, or
+ * as large as the runs' spacing says it takes to reach `SETTLE` past.
+ */
+export const libraryRuns = <T>(next: (count: number) => T[], from: number, count: number, time: (run: T) => number, timezone: string | undefined): T[] => {
     const ask = (size: number, retries: number): T[] => {
         const batch = next(size)
         const runs = inOrder(batch, from, time)
+        const last = runs[count - 1]
+        const end = Math.max(...batch.map(time))
+        const reach = last ? time(last) + SETTLE : end
+        const settled = end >= reach || offsetAt(from, timezone) === offsetAt(reach, timezone)
+        const grown = settled ? size * 2 : Math.max(size * 2, Math.ceil((batch.length * (reach - from)) / Math.max(end - from, 1)))
 
-        return runs.length < count && batch.length >= size && retries ? ask(size * 2, retries - 1) : runs.slice(0, count)
+        return (runs.length < count || !settled) && batch.length >= size && retries ? ask(grown, retries - 1) : runs.slice(0, count)
     }
 
     return ask(count, 2)
@@ -72,6 +90,7 @@ export const upcoming = (target: Target, value: string, { from = new Date(), cou
               from.getTime(),
               options.count,
               date => date.getTime(),
+              options.timezone,
           )
         : builtIn
 }

@@ -154,6 +154,7 @@ export const upcoming = (target: Target, value: string, { from, count = 1, timez
               start.epochMilliseconds,
               wanted,
               run => run.epochMilliseconds,
+              zone,
           )
         : builtIn
 }

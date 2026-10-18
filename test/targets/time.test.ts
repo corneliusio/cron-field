@@ -97,8 +97,9 @@ test('upcoming puts croner’s runs in order and each once, and still returns as
     const times = (value: string, timezone: string, from: string, count: number) =>
         upcoming(target, value, { from: new Date(from), count, timezone }).map(date => date.toISOString().slice(11, 16))
 
-    // croner returns 2:50 before 2:40 in Lord Howe's gap.
+    // croner returns 2:50 before 2:40 in Lord Howe's gap, so a short request still has to look past 2:50.
     assert.deepEqual(times('0,20,40 2 * * *', 'Australia/Lord_Howe', '2026-10-03T15:20:00Z', 3), ['15:30', '15:40', '15:50'])
+    assert.deepEqual(times('0,20,40 2 * * *', 'Australia/Lord_Howe', '2026-10-03T15:20:00Z', 2), ['15:30', '15:40'])
     // croner runs Santiago's missing midnight hour at 1:00 and then 1:00 again; the repeats are asked for again.
     assert.deepEqual(times('*/30 * * * *', 'America/Santiago', '2026-09-06T03:00:00Z', 4), ['03:30', '04:00', '04:30', '05:00'])
 })
