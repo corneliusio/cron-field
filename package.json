@@ -1,0 +1,97 @@
+{
+    "name": "cron-field",
+    "version": "0.0.0",
+    "private": true,
+    "description": "A cron schedule field: each cron field is a chip with a menu of presets.",
+    "license": "MIT",
+    "files": [
+        "dist"
+    ],
+    "type": "module",
+    "sideEffects": [
+        "**/*.css"
+    ],
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./croner": {
+            "types": "./dist/adapters/croner.d.ts",
+            "default": "./dist/adapters/croner.js"
+        },
+        "./effect": {
+            "types": "./dist/adapters/effect.d.ts",
+            "default": "./dist/adapters/effect.js"
+        },
+        "./cron-parser": {
+            "types": "./dist/adapters/cron-parser.d.ts",
+            "default": "./dist/adapters/cron-parser.js"
+        },
+        "./experimental/temporal": {
+            "types": "./dist/experimental/temporal/index.d.ts",
+            "default": "./dist/experimental/temporal/index.js"
+        },
+        "./element": {
+            "types": "./dist/element/index.d.ts",
+            "default": "./dist/element/index.js"
+        },
+        "./react": {
+            "types": "./dist/react/index.d.ts",
+            "default": "./dist/react/index.js"
+        },
+        "./svelte": {
+            "types": "./dist/svelte/index.d.ts",
+            "svelte": "./dist/svelte/index.js",
+            "default": "./dist/svelte/index.js"
+        },
+        "./vue": {
+            "types": "./dist/vue/index.d.ts",
+            "default": "./dist/vue/index.js"
+        },
+        "./base.css": "./dist/base.css",
+        "./theme.css": "./dist/theme.css",
+        "./messages.json": "./dist/messages.json"
+    },
+    "scripts": {
+        "build": "node scripts/build.ts",
+        "check": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json --threshold error --tsgo",
+        "fmt": "oxfmt --write .",
+        "fmt:check": "oxfmt --check .",
+        "lint": "oxlint",
+        "test": "TZ=America/Chicago node --test 'test/**/*.test.ts'"
+    },
+    "devDependencies": {
+        "@types/node": "^26.6.5",
+        "@types/react": "^19.3.0",
+        "@types/react-dom": "^19.3.0",
+        "@typescript/native": "npm:typescript@^7.0.2",
+        "cron-parser": "^5.10.2",
+        "croner": "^10.0.1",
+        "effect": "^4.0.5",
+        "oxfmt": "^0.73.0",
+        "oxlint": "^1.88.0",
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1",
+        "svelte": "^5.57.2",
+        "svelte-check": "^4.7.7",
+        "typescript": "^6.0.3",
+        "vue": "^3.5.44"
+    },
+    "peerDependencies": {
+        "react": ">=19",
+        "svelte": ">=5",
+        "vue": ">=3.4"
+    },
+    "peerDependenciesMeta": {
+        "react": {
+            "optional": true
+        },
+        "svelte": {
+            "optional": true
+        },
+        "vue": {
+            "optional": true
+        }
+    }
+}

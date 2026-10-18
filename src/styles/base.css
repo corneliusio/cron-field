@@ -1,0 +1,365 @@
+/*
+ * cron-field base: layout, plus faint edges and states drawn in the text colour so the field reads
+ * without a theme. Sizes, flex and grid, the chip widths, a monospace for tokens; no theme colours, no
+ * motion. Import this alone to style the field yourself; theme.css includes it. The field works without
+ * either.
+ *
+ * Every size is a multiple of --_cron-field-u: a quarter of 14px at a 14px field, computed once at the
+ * root so nested font sizes don't compound. Set font-size on the field to scale all of it.
+ */
+@property --_cron-field-u {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 4px;
+}
+
+:where(.cron-field) {
+    --_cron-field-u: calc(1em / 3.5);
+    display: grid;
+    align-content: start;
+    gap: calc(var(--_cron-field-u) * 1.5);
+    min-width: 0;
+    font-size: var(--cron-field-font-size, 1em);
+}
+
+:where(.cron-field *),
+:where(.cron-field *)::before,
+:where(.cron-field *)::after {
+    box-sizing: border-box;
+}
+
+.cron-field[hidden],
+.cron-field [hidden] {
+    display: none !important;
+}
+
+:where(.cron-field :is(button, input, select)) {
+    margin: 0;
+    font: inherit;
+    color: inherit;
+}
+
+:where(.cron-field button) {
+    appearance: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    text-align: inherit;
+}
+
+:where(.cron-field button:disabled) {
+    cursor: default;
+}
+
+:where(.cron-field :focus-visible) {
+    outline: 2px solid currentColor;
+    outline-offset: -2px;
+}
+
+/* Label row: the label, with Edit as cron on the right. The row keeps a label's height and the button overhangs it. */
+:where(.cron-field [data-part='head']) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--_cron-field-u) * 2);
+    height: calc(var(--_cron-field-u) * 5);
+}
+
+:where(.cron-field [data-part='mode-toggle']) {
+    display: inline-flex;
+    align-items: center;
+    height: calc(var(--_cron-field-u) * 6);
+    padding-inline: calc(var(--_cron-field-u) * 2 - 1px);
+    white-space: nowrap;
+}
+
+/* The chips' box: input-sized. */
+:where(.cron-field [data-part='box']) {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    height: calc(var(--_cron-field-u) * 8);
+    padding-inline: calc(var(--_cron-field-u) - 1px);
+    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+}
+
+:where(.cron-field [data-part='chips']) {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: var(--_cron-field-u);
+    min-width: 0;
+}
+
+/*
+ * Chips share the row in proportion to their token's length (the text is mono), keep their natural width
+ * up to an equal share of the row, and clip long tokens past that. --len is the token's length; --_cron-field-n
+ * the number of chips.
+ */
+:where(.cron-field [data-part='chips']) {
+    --_cron-field-n: 5;
+}
+
+:where(.cron-field [data-part='chips']:has(> [data-part='chip']:nth-of-type(6))) {
+    --_cron-field-n: 6;
+}
+
+:where(.cron-field [data-part='chips']:has(> [data-part='chip']:nth-of-type(7))) {
+    --_cron-field-n: 7;
+}
+
+:where(.cron-field [data-part='chip']) {
+    position: relative;
+    display: inline-flex;
+    flex: calc(var(--len, 1) + 2.25) 1 0%;
+    align-items: center;
+    justify-content: center;
+    min-width: min(
+        calc(var(--len, 1) * 1ch + var(--_cron-field-u) * 4),
+        calc((100% - (var(--_cron-field-n) - 1) * var(--_cron-field-u)) / var(--_cron-field-n))
+    );
+    height: calc(var(--_cron-field-u) * 6);
+    padding-inline: calc(var(--_cron-field-u) * 2 - 1px);
+    border: 1px solid transparent;
+    font-family: var(--_cron-field-font-mono, ui-monospace, monospace);
+    font-size: calc(var(--_cron-field-u) * 3);
+    white-space: nowrap;
+}
+
+:where(.cron-field [data-part='chip']:not([data-any])) {
+    background-color: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+:where(.cron-field [data-part='chip'][data-any]) {
+    border-style: dashed;
+    border-color: color-mix(in srgb, currentColor 30%, transparent);
+}
+
+:where(.cron-field [data-part='chip'][aria-expanded='true']) {
+    border-style: solid;
+    border-color: currentColor;
+}
+
+:where(.cron-field [data-part='token']) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The chip's meaning, shown above it on hover and keyboard focus. Placed by the field. */
+:where(.cron-field [data-part='chip-label']) {
+    overflow: hidden;
+    height: calc(var(--_cron-field-u) * 6);
+    padding: 0 calc(var(--_cron-field-u) * 2);
+    font-family: var(--_cron-field-font, inherit);
+    font-size: calc(var(--_cron-field-u) * 3);
+    line-height: calc(var(--_cron-field-u) * 5.5);
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The label stays up while the pointer crosses from the chip onto it. */
+:where(.cron-field [data-part='chip-label'])::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    height: calc(var(--_cron-field-u) * 2);
+}
+
+:where(.cron-field [data-part='chip-label'][data-side='bottom'])::before {
+    top: auto;
+    bottom: 100%;
+}
+
+/* Edit as cron: a plain input of the box's size. */
+:where(.cron-field [data-part='input']),
+:where(.cron-field [data-part='custom-input']),
+:where(.cron-field [data-part='select']) {
+    width: 100%;
+    min-width: 0;
+    height: calc(var(--_cron-field-u) * 8);
+    padding-inline: calc(var(--_cron-field-u) * 3 - 1px);
+}
+
+:where(.cron-field :is([data-part='input'], [data-part='custom-input'])) {
+    font-family: var(--_cron-field-font-mono, ui-monospace, monospace);
+}
+
+/* Menus: placed under the field by the field itself. */
+:where(.cron-field [data-part='menu']:popover-open) {
+    display: grid;
+    align-content: start;
+    width: min(calc(var(--_cron-field-u) * 72), calc(100vw - var(--_cron-field-u) * 4));
+    padding: var(--_cron-field-u);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+:where(.cron-field [data-part='menu'][data-wide]:popover-open) {
+    width: min(calc(var(--_cron-field-u) * 84), calc(100vw - var(--_cron-field-u) * 4));
+}
+
+:where(.cron-field [data-part='section']) {
+    display: grid;
+    gap: var(--_cron-field-u);
+    padding-block: var(--_cron-field-u);
+}
+
+:where(.cron-field [data-part='section'] + [data-part='section']) {
+    margin-top: var(--_cron-field-u);
+    padding-top: calc(var(--_cron-field-u) * 2);
+    border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+
+:where(.cron-field [data-part='section-head']) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--_cron-field-u) * 2);
+    height: calc(var(--_cron-field-u) * 6);
+    padding-inline: calc(var(--_cron-field-u) * 2);
+    font-size: calc(var(--_cron-field-u) * 3);
+}
+
+:where(.cron-field [data-part='section-head'] > span) {
+    display: flex;
+    align-items: center;
+}
+
+/* Days menu: the dot lines up with the pills' edge, and the title with their text. */
+:where(.cron-field [data-part='section-head']:has([data-part='dot'])) {
+    padding-inline: var(--_cron-field-u);
+}
+
+:where(.cron-field [data-part='dot']) {
+    display: block;
+    flex: none;
+    width: calc(var(--_cron-field-u) * 1.5);
+    height: calc(var(--_cron-field-u) * 1.5);
+    margin-right: calc(var(--_cron-field-u) * 1.25);
+    border-radius: 50%;
+    background-color: color-mix(in srgb, currentColor 40%, transparent);
+}
+
+:where(.cron-field [data-part='dot'][data-active]) {
+    background-color: currentColor;
+}
+
+:where(.cron-field [data-part='clear']) {
+    display: inline-flex;
+    align-items: center;
+    height: calc(var(--_cron-field-u) * 6);
+    padding-inline: calc(var(--_cron-field-u) * 2 - 1px);
+}
+
+:where(.cron-field [data-part='presets'][data-layout='list']) {
+    display: grid;
+}
+
+:where(.cron-field [data-part='presets'][data-layout='pills']) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--_cron-field-u);
+    padding-inline: var(--_cron-field-u);
+}
+
+:where(.cron-field [data-layout='list'] > [data-part='preset']) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--_cron-field-u) * 2);
+    width: 100%;
+    min-height: calc(var(--_cron-field-u) * 7);
+    padding: var(--_cron-field-u) calc(var(--_cron-field-u) * 2);
+}
+
+:where(.cron-field [data-layout='pills'] > [data-part='preset']) {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--_cron-field-u) * 1.5);
+    height: calc(var(--_cron-field-u) * 6);
+    padding-inline: calc(var(--_cron-field-u) * 2.5);
+    border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+    font-size: calc(var(--_cron-field-u) * 3);
+}
+
+:where(.cron-field :is([data-part='preset'][aria-current='true'], [data-part='day-toggle'][aria-pressed='true'])) {
+    background-color: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+:where(.cron-field [data-part='check']) {
+    display: inline-flex;
+    flex: none;
+}
+
+:where(.cron-field [data-part='check'] svg) {
+    width: calc(var(--_cron-field-u) * 3.5);
+    height: calc(var(--_cron-field-u) * 3.5);
+}
+
+:where(.cron-field [data-part='custom']) {
+    display: grid;
+    gap: calc(var(--_cron-field-u) * 1.5);
+    padding: var(--_cron-field-u) var(--_cron-field-u) 0;
+}
+
+:where(.cron-field [data-part='nth']) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: calc(var(--_cron-field-u) * 1.5);
+    padding: var(--_cron-field-u) var(--_cron-field-u) 0;
+}
+
+:where(.cron-field [data-part='days']) {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: calc(var(--_cron-field-u) * 0.5);
+    margin: var(--_cron-field-u) var(--_cron-field-u) 0;
+    padding: calc(var(--_cron-field-u) * 0.5);
+}
+
+:where(.cron-field [data-part='day-toggle']) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    height: calc(var(--_cron-field-u) * 6);
+    font-size: calc(var(--_cron-field-u) * 3);
+}
+
+:where(.cron-field :is([data-part='note'], [data-part='custom-hint'], [data-part='message'])) {
+    margin: 0;
+    font-size: calc(var(--_cron-field-u) * 3);
+}
+
+:where(.cron-field [data-part='note']) {
+    padding: var(--_cron-field-u) calc(var(--_cron-field-u) * 2);
+}
+
+:where(.cron-field [data-part='fix']) {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* Touch screens get a step taller targets, and 16px text in inputs so iOS doesn't zoom. */
+@media (pointer: coarse) {
+    :where(.cron-field :is([data-part='box'], [data-part='input'], [data-part='custom-input'], [data-part='select'])) {
+        height: calc(var(--_cron-field-u) * 9);
+    }
+
+    :where(.cron-field :is([data-part='input'], [data-part='custom-input'], [data-part='select'])) {
+        font-size: max(16px, calc(var(--_cron-field-u) * 4));
+    }
+
+    :where(.cron-field [data-layout='list'] > [data-part='preset']) {
+        min-height: calc(var(--_cron-field-u) * 8);
+    }
+
+    :where(.cron-field [data-part='mode-toggle']) {
+        height: calc(var(--_cron-field-u) * 7);
+    }
+}

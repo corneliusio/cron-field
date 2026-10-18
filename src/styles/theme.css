@@ -1,0 +1,455 @@
+/*
+ * cron-field theme: the default look. It reads public --cron-field-* tokens,
+ * falling back to common theme variables (--background, --foreground, --input, --ring, …) and then to
+ * its own values for light and dark. It never declares a public token, so you can set one anywhere: on
+ * :root, on a wrapper, or on the field.
+ *
+ * Rules are element-level, (0,0,1), so any single class overrides them: yours, a StyleX class passed through
+ * `parts`, or a Tailwind utility when this file is imported into a layer below utilities.
+ *
+ * Light and dark follow the inherited color-scheme. Set `color-scheme` on the page or the field.
+ */
+@import './base.css';
+
+:where(.cron-field) {
+    --_cron-field-bg: var(--cron-field-bg, var(--background, light-dark(oklch(99.2% 0 0), oklch(14.5% 0 0))));
+    --_cron-field-fg: var(--cron-field-fg, var(--foreground, light-dark(oklch(27.4% 0.006 286.033), oklch(97% 0 0))));
+    --_cron-field-muted: var(
+        --cron-field-muted,
+        var(--muted-foreground, light-dark(oklch(55.2% 0.016 285.938), color-mix(in srgb, oklch(55.6% 0 0) 90%, #fff)))
+    );
+    --_cron-field-border: var(--cron-field-border, var(--input, light-dark(oklch(87.1% 0.006 286.286), color-mix(in oklab, #fff 8%, transparent))));
+    --_cron-field-divider: var(--cron-field-divider, var(--border, light-dark(oklch(92% 0.004 286.32), color-mix(in oklab, #fff 6%, transparent))));
+    --_cron-field-chip: var(
+        --cron-field-chip,
+        light-dark(color-mix(in oklab, var(--_cron-field-border) 56%, transparent), color-mix(in oklab, var(--_cron-field-border) 88%, transparent))
+    );
+    --_cron-field-popover: var(--cron-field-popover, var(--popover, light-dark(#fff, color-mix(in srgb, oklch(14.5% 0 0) 97%, #fff))));
+    --_cron-field-hover: var(--cron-field-hover, var(--accent, light-dark(oklch(96.7% 0.001 286.375), color-mix(in oklab, #fff 4%, transparent))));
+    --_cron-field-ring: var(--cron-field-ring, var(--ring, light-dark(oklch(48.8% 0.217 264), oklch(57.1% 0.21 264))));
+    --_cron-field-error: var(--cron-field-error, var(--error-foreground, var(--destructive, light-dark(oklch(50.5% 0.213 27.518), oklch(70.4% 0.191 22.216)))));
+    --_cron-field-error-tint: var(
+        --cron-field-error,
+        var(--error, var(--destructive, light-dark(oklch(63.7% 0.237 25.331), color-mix(in srgb, oklch(63.7% 0.237 25.331) 90%, #fff))))
+    );
+    --_cron-field-link: var(--cron-field-link, var(--info-foreground, light-dark(oklch(48.8% 0.243 264.376), oklch(70.7% 0.165 254.624))));
+    --_cron-field-radius: var(--cron-field-radius, var(--radius, calc(var(--_cron-field-u) * 2.5)));
+    --_cron-field-shadow: var(
+        --cron-field-shadow,
+        0 calc(var(--_cron-field-u) * 4) calc(var(--_cron-field-u) * 10) calc(var(--_cron-field-u) * -4.5) light-dark(rgb(0 0 0 / 55%), rgb(0 0 0 / 80%))
+    );
+    --_cron-field-font: var(--cron-field-font, var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif));
+    --_cron-field-font-mono: var(
+        --cron-field-font-mono,
+        var(--font-mono, ui-monospace, 'SF Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace)
+    );
+
+    /* One ink for every field unless a field sets its own. */
+    --_cron-field-ink: var(--cron-field-ink, var(--_cron-field-fg));
+    --_cron-field-second: var(--cron-field-second, var(--_cron-field-ink));
+    --_cron-field-minute: var(--cron-field-minute, var(--_cron-field-ink));
+    --_cron-field-hour: var(--cron-field-hour, var(--_cron-field-ink));
+    --_cron-field-day: var(--cron-field-day, var(--_cron-field-ink));
+    --_cron-field-month: var(--cron-field-month, var(--_cron-field-ink));
+    --_cron-field-weekday: var(--cron-field-weekday, var(--_cron-field-ink));
+    --_cron-field-year: var(--cron-field-year, var(--_cron-field-ink));
+
+    /* Derived: radii one and two steps in, the glass of menus and labels, and the small shadows of controls. */
+    --_cron-field-radius-sm: calc(var(--_cron-field-radius) - var(--_cron-field-u));
+    --_cron-field-radius-md: calc(var(--_cron-field-radius) - var(--_cron-field-u) / 2);
+    --_cron-field-glass: color-mix(in srgb, var(--_cron-field-popover) 80%, transparent);
+    --_cron-field-glass-border: light-dark(color-mix(in srgb, var(--_cron-field-fg) 10%, transparent), color-mix(in srgb, #fff 8%, transparent));
+    --_cron-field-shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 5%);
+    --_cron-field-ease: cubic-bezier(0.32, 0.72, 0, 1);
+
+    color: var(--_cron-field-fg);
+    font-family: var(--_cron-field-font);
+    line-height: calc(var(--_cron-field-u) * 5);
+}
+
+/* The colour a chip, and the dots of the sections writing to it, take while a section targets it. */
+:where(.cron-field [data-field='second']) {
+    --_cron-field-this: var(--_cron-field-second);
+}
+
+:where(.cron-field [data-field='minute']) {
+    --_cron-field-this: var(--_cron-field-minute);
+}
+
+:where(.cron-field [data-field='hour']) {
+    --_cron-field-this: var(--_cron-field-hour);
+}
+
+:where(.cron-field [data-field='day']) {
+    --_cron-field-this: var(--_cron-field-day);
+}
+
+:where(.cron-field [data-field='month']) {
+    --_cron-field-this: var(--_cron-field-month);
+}
+
+:where(.cron-field [data-field='weekday']) {
+    --_cron-field-this: var(--_cron-field-weekday);
+}
+
+:where(.cron-field [data-field='year']) {
+    --_cron-field-this: var(--_cron-field-year);
+}
+
+/* ---------- Label row ---------- */
+
+:where(.cron-field) span:where([data-part='label']) {
+    font-weight: 500;
+}
+
+/* A quiet text button. */
+:where(.cron-field) button:where([data-part='mode-toggle'], [data-part='clear']) {
+    border-radius: var(--_cron-field-radius-md);
+    color: var(--_cron-field-muted);
+    font-size: calc(var(--_cron-field-u) * 3);
+    font-weight: 500;
+    transition:
+        background-color 150ms,
+        color 150ms;
+}
+
+:where(.cron-field) button:where([data-part='mode-toggle'], [data-part='clear']):where(:hover) {
+    background-color: var(--_cron-field-hover);
+    color: var(--_cron-field-fg);
+}
+
+:where(.cron-field) button:where([data-part='mode-toggle'], [data-part='clear']):where(:focus-visible) {
+    outline: none;
+    box-shadow:
+        inset 0 0 0 1px var(--_cron-field-bg),
+        inset 0 0 0 3px var(--_cron-field-ring);
+}
+
+:where(.cron-field) button:where([data-part='mode-toggle']):where(:disabled) {
+    opacity: 0.64;
+}
+
+/* ---------- The chips' box ---------- */
+
+:where(.cron-field) div:where([data-part='box']) {
+    border: 1px solid var(--_cron-field-border);
+    border-radius: var(--_cron-field-radius);
+    background-color: light-dark(var(--_cron-field-bg), color-mix(in oklab, var(--_cron-field-border) 32%, transparent));
+    background-clip: padding-box;
+    box-shadow: var(--_cron-field-shadow-xs);
+    transition:
+        border-color 150ms,
+        box-shadow 150ms;
+}
+
+:where(.cron-field) div:where([data-part='box'][data-invalid]) {
+    border-color: color-mix(in oklab, var(--_cron-field-error-tint) 36%, transparent);
+}
+
+:where(.cron-field[data-disabled], fieldset:disabled .cron-field) div:where([data-part='box']) {
+    opacity: 0.64;
+    box-shadow: none;
+}
+
+:where(.cron-field) button:where([data-part='chip']) {
+    border-radius: var(--_cron-field-radius-sm);
+    background-color: var(--_cron-field-chip);
+    color: var(--_cron-field-this, var(--_cron-field-ink));
+    line-height: calc(var(--_cron-field-u) * 4);
+    transition:
+        flex-grow 250ms var(--_cron-field-ease),
+        min-width 250ms var(--_cron-field-ease),
+        background-color 150ms,
+        border-color 150ms;
+}
+
+:where(.cron-field) button:where([data-part='chip']):where(:hover) {
+    background-color: light-dark(color-mix(in oklab, var(--_cron-field-border) 88%, transparent), var(--_cron-field-border));
+}
+
+:where(.cron-field) button:where([data-part='chip']):where(:focus-visible) {
+    outline: 2px solid var(--_cron-field-ring);
+    outline-offset: -2px;
+}
+
+/* A field at * is dashed and muted, like other "not set" marks. */
+:where(.cron-field) button:where([data-part='chip'][data-any]) {
+    border-color: var(--_cron-field-border);
+    background-color: transparent;
+    color: var(--_cron-field-muted);
+}
+
+:where(.cron-field) button:where([data-part='chip'][data-any]):where(:hover) {
+    background-color: var(--_cron-field-hover);
+}
+
+:where(.cron-field) button:where([data-part='chip'][data-invalid]) {
+    border-color: color-mix(in oklab, var(--_cron-field-error-tint) 36%, transparent);
+    background-color: light-dark(
+        color-mix(in srgb, var(--_cron-field-error-tint) 8%, transparent),
+        color-mix(in srgb, var(--_cron-field-error-tint) 16%, transparent)
+    );
+    color: var(--_cron-field-error);
+}
+
+/* The chip that owns the open menu is raised, like a pressed segment. */
+:where(.cron-field) button:where([data-part='chip'][aria-expanded='true']) {
+    border-color: var(--_cron-field-border);
+    border-style: solid;
+    background-color: light-dark(var(--_cron-field-bg), var(--_cron-field-border));
+    color: var(--_cron-field-this, var(--_cron-field-fg));
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 10%);
+}
+
+/* The menu section under the pointer or focus outlines the chip it writes to. */
+:where(.cron-field) button:where([data-part='chip'][data-target]) {
+    border-color: color-mix(in oklab, var(--_cron-field-this, var(--_cron-field-fg)) 72%, transparent);
+}
+
+/* The chip's meaning above it: a chip-sized glass label. */
+:where(.cron-field) span:where([data-part='chip-label']) {
+    padding: 0 calc(var(--_cron-field-u) * 2);
+    border: 1px solid var(--_cron-field-glass-border);
+    border-radius: var(--_cron-field-radius-sm);
+    background-color: var(--_cron-field-glass);
+    color: var(--_cron-field-fg);
+    box-shadow: var(--_cron-field-shadow);
+    backdrop-filter: blur(14px) saturate(1.1);
+    opacity: 0;
+    translate: 0 2px;
+    transition:
+        opacity 120ms,
+        translate 120ms,
+        display 120ms allow-discrete,
+        overlay 120ms allow-discrete;
+}
+
+:where(.cron-field) span:where([data-part='chip-label']):where(:popover-open) {
+    display: block;
+    opacity: 1;
+    translate: 0 0;
+}
+
+@starting-style {
+    :where(.cron-field) span:where([data-part='chip-label']):where(:popover-open) {
+        opacity: 0;
+        translate: 0 2px;
+    }
+}
+
+/* Below the chip, when the menu has flipped above the field, the label rises from the other side. */
+:where(.cron-field) span:where([data-part='chip-label'][data-side='bottom']) {
+    translate: 0 -2px;
+}
+
+:where(.cron-field) span:where([data-part='chip-label'][data-side='bottom']):where(:popover-open) {
+    translate: 0 0;
+}
+
+@starting-style {
+    :where(.cron-field) span:where([data-part='chip-label'][data-side='bottom']):where(:popover-open) {
+        translate: 0 -2px;
+    }
+}
+
+/* ---------- Inputs ---------- */
+
+:where(.cron-field) :is(input, select):where([data-part='input'], [data-part='custom-input'], [data-part='select']) {
+    border: 1px solid var(--_cron-field-border);
+    border-radius: var(--_cron-field-radius);
+    outline: none;
+    background-color: light-dark(var(--_cron-field-bg), color-mix(in oklab, var(--_cron-field-border) 32%, transparent));
+    background-clip: padding-box;
+    color: var(--_cron-field-fg);
+    font-size: calc(var(--_cron-field-u) * 3.5);
+    box-shadow: var(--_cron-field-shadow-xs);
+    transition:
+        border-color 150ms,
+        box-shadow 150ms,
+        background-color 150ms;
+}
+
+:where(.cron-field) :is(input, select):where([data-part='input'], [data-part='custom-input'], [data-part='select']):where(:focus) {
+    border-color: var(--_cron-field-ring);
+    box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--_cron-field-ring) 24%, transparent);
+}
+
+:where(.cron-field) input:where([data-part='input'], [data-part='custom-input']):where([aria-invalid]) {
+    border-color: color-mix(in oklab, var(--_cron-field-error-tint) 36%, transparent);
+}
+
+:where(.cron-field) input:where([data-part='input'], [data-part='custom-input']):where([aria-invalid]:focus) {
+    border-color: color-mix(in oklab, var(--_cron-field-error-tint) 64%, transparent);
+    box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--_cron-field-error-tint) 16%, transparent);
+}
+
+:where(.cron-field) input:where([data-part='input'])::placeholder {
+    color: var(--_cron-field-muted);
+}
+
+:where(.cron-field) select:where([data-part='select']) {
+    appearance: none;
+    padding-right: calc(var(--_cron-field-u) * 8);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23939499' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 6.5 3 3 3-3'/%3E%3C/svg%3E");
+    background-position: right calc(var(--_cron-field-u) * 2) center;
+    background-repeat: no-repeat;
+    background-size: calc(var(--_cron-field-u) * 4);
+}
+
+/* ---------- Menus ---------- */
+
+:where(.cron-field) div:where([data-part='menu']) {
+    border: 1px solid var(--_cron-field-glass-border);
+    border-radius: var(--_cron-field-radius);
+    background-color: var(--_cron-field-glass);
+    color: var(--_cron-field-fg);
+    box-shadow: var(--_cron-field-shadow);
+    backdrop-filter: blur(14px) saturate(1.1);
+    outline: none;
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+    :where(.cron-field) :is(div, span):where([data-part='menu'], [data-part='chip-label']) {
+        background-color: var(--_cron-field-popover);
+    }
+}
+
+:where(.cron-field) div:where([data-part='section'] + [data-part='section']) {
+    border-top-color: var(--_cron-field-divider);
+}
+
+:where(.cron-field) div:where([data-part='section-head']) {
+    color: var(--_cron-field-muted);
+    font-weight: 500;
+}
+
+/* Each Days heading leads with a dot that lights, with its chip's outline, while a section writing to that chip is targeted. */
+:where(.cron-field) i:where([data-part='dot']) {
+    background-color: color-mix(in oklab, var(--_cron-field-muted) 40%, transparent);
+    transition: background-color 150ms;
+}
+
+:where(.cron-field) i:where([data-part='dot'][data-active]) {
+    background-color: color-mix(in oklab, var(--_cron-field-this, var(--_cron-field-fg)) 72%, transparent);
+}
+
+/* Menu rows. */
+:where(.cron-field) button:where([data-layout='list'] > [data-part='preset']) {
+    border-radius: var(--_cron-field-radius-sm);
+    color: var(--_cron-field-fg);
+    font-size: calc(var(--_cron-field-u) * 3.5);
+    user-select: none;
+}
+
+:where(.cron-field) button:where([data-layout='list'] > [data-part='preset']):where(:hover, :focus-visible) {
+    outline: none;
+    background-color: var(--_cron-field-hover);
+}
+
+:where(.cron-field) button:where([data-layout='list'] > [data-part='preset'][aria-current='true']) {
+    background-color: transparent;
+}
+
+:where(.cron-field) button:where([data-layout='list'] > [data-part='preset'][aria-current='true']):where(:hover, :focus-visible) {
+    background-color: var(--_cron-field-hover);
+}
+
+/* Days presets, as bordered toggle pills. */
+:where(.cron-field) button:where([data-layout='pills'] > [data-part='preset']) {
+    border-color: var(--_cron-field-border);
+    border-radius: 999px;
+    color: var(--_cron-field-muted);
+    font-weight: 500;
+    transition:
+        background-color 150ms,
+        color 150ms;
+}
+
+:where(.cron-field) button:where([data-layout='pills'] > [data-part='preset']):where(:hover) {
+    background-color: var(--_cron-field-hover);
+    color: var(--_cron-field-fg);
+}
+
+:where(.cron-field) button:where([data-layout='pills'] > [data-part='preset']):where(:focus-visible) {
+    outline: 2px solid var(--_cron-field-ring);
+    outline-offset: -2px;
+}
+
+:where(.cron-field) button:where([data-layout='pills'] > [data-part='preset'][aria-current='true']) {
+    border-color: transparent;
+    background-color: color-mix(in oklab, var(--_cron-field-border) 64%, transparent);
+    color: var(--_cron-field-fg);
+}
+
+:where(.cron-field) span:where([data-part='check']) {
+    color: var(--_cron-field-fg);
+}
+
+/* The day toggles: a segmented control, a recessed track with raised selections. */
+:where(.cron-field) div:where([data-part='days']) {
+    border-radius: var(--_cron-field-radius);
+    background-color: color-mix(in oklab, var(--_cron-field-border) 40%, transparent);
+}
+
+:where(.cron-field) button:where([data-part='day-toggle']) {
+    border-radius: var(--_cron-field-radius-md);
+    color: var(--_cron-field-muted);
+    font-weight: 500;
+    transition:
+        background-color 150ms,
+        color 150ms;
+}
+
+:where(.cron-field) button:where([data-part='day-toggle']):where(:hover) {
+    background-color: light-dark(color-mix(in oklab, var(--_cron-field-bg) 55%, transparent), color-mix(in oklab, var(--_cron-field-border) 32%, transparent));
+    color: var(--_cron-field-fg);
+}
+
+:where(.cron-field) button:where([data-part='day-toggle'][aria-pressed='true']) {
+    background-color: light-dark(var(--_cron-field-bg), color-mix(in oklab, var(--_cron-field-border) 72%, transparent));
+    color: var(--_cron-field-fg);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 10%);
+}
+
+:where(.cron-field) button:where([data-part='day-toggle']):where(:focus-visible) {
+    outline: 2px solid var(--_cron-field-ring);
+    outline-offset: -2px;
+}
+
+/* ---------- Hints ---------- */
+
+:where(.cron-field) p:where([data-part='message'], [data-part='custom-hint'], [data-part='note']) {
+    color: var(--_cron-field-muted);
+    line-height: calc(var(--_cron-field-u) * 4);
+    text-wrap: pretty;
+}
+
+:where(.cron-field) p:where([data-part='message'][data-invalid], [data-part='custom-hint'][data-invalid]) {
+    color: var(--_cron-field-error);
+}
+
+:where(.cron-field) button:where([data-part='fix']) {
+    color: var(--_cron-field-link);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+:where(.cron-field) button:where([data-part='fix']):where(:hover) {
+    text-decoration: underline;
+}
+
+@media (pointer: coarse) {
+    :where(.cron-field) button:where([data-layout='list'] > [data-part='preset']) {
+        font-size: calc(var(--_cron-field-u) * 4);
+    }
+
+    :where(.cron-field) button:where([data-part='mode-toggle']) {
+        font-size: calc(var(--_cron-field-u) * 3.5);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :where(.cron-field) * {
+        transition: none !important;
+    }
+}
