@@ -16,7 +16,7 @@ import {
     translator,
     type MessageRequest,
     type Translate,
-} from '../src/index.ts'
+} from '../../src/index.ts'
 
 test('formats ICU arguments, plurals and selects', () => {
     assert.equal(formatMessage('Hi {name}', { name: 'Ada' }), 'Hi Ada')

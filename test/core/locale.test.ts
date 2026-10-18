@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { chipWords, compile, describe, formatMessage, formatter, menu, MESSAGES, TARGETS, type Translate } from '../src/index.ts'
+import { chipWords, compile, describe, formatMessage, formatter, menu, MESSAGES, TARGETS, type Translate } from '../../src/index.ts'
 
 const c = (value: string) => compile(value, TARGETS.croner)
 
@@ -53,7 +53,7 @@ test('the sentence and chip labels use no words outside the catalog', () => {
     // Every message becomes a number and its params, so any English left would come from code rather than the catalog.
     const keys = Object.keys(MESSAGES)
     // Keys that only feed `select`, such as field: minute, are values rather than words.
-    const selectKeys = new Set(['field', 'other', 'position', 'parity', 'join', 'hasFrom', 'hasUntil', 'names'])
+    const selectKeys = new Set(['field', 'other', 'parity', 'join', 'hasFrom', 'hasUntil', 'names'])
     const ids: Translate = ({ id, params }) =>
         `m${keys.indexOf(id)}(${Object.entries(params)
             .filter(([key]) => !selectKeys.has(key))
@@ -80,11 +80,17 @@ test('a translation reaches the whole sentence', () => {
         'dow.weekdays': 'an Wochentagen',
         'dow.on': 'am {days}',
         'day.plural': '{dayName}',
-        'word.weekdays': '{position, select, start {Werktags} other {werktags}}',
+        'word.weekdays': 'werktags',
     }
     const translate: Translate = ({ id, template, params }) => formatMessage(german[id] ?? template, params, 'de')
 
     assert.equal(describe(c('0 9 * * 1-5'), { locale: 'de', translate }), 'Um 09:00 an Wochentagen.')
     assert.equal(describe(c('30 8 * * 1,3'), { locale: 'de', translate }), 'Um 08:30 am Montag und Mittwoch.')
     assert.equal(chipWords(c('0 9 * * 1-5'), { locale: 'de', translate }).weekday, 'Werktags')
+})
+
+test('month names are Gregorian whatever calendar the locale uses', () => {
+    const march = new Intl.DateTimeFormat('fa', { month: 'long', calendar: 'gregory', timeZone: 'UTC' }).format(new Date(Date.UTC(2001, 2, 1)))
+
+    assert.equal(formatter({ locale: 'fa' }).month(3), march)
 })
