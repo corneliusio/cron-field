@@ -56,6 +56,18 @@ test('presets can be replaced or extended per field, and take the chip’s words
         menu(key, c, presets).sections.map(section => section.presets.map(([label, token]) => `${label} ${token}`))
 
     assert.deepEqual(read('hour', { presets: { hour: ['*', '8-18', '12'] } }), [['Every hour *', '8 AM–6 PM 8-18', 'At 12 PM 12']])
+    // A preset can bring its own label; one the target can't read still drops out.
+    assert.deepEqual(
+        read('hour', {
+            presets: {
+                hour: [
+                    { token: '8-18', label: 'Business hours' },
+                    { token: '25', label: 'Never' },
+                ],
+            },
+        }),
+        [['Business hours 8-18']],
+    )
     // A function extends the defaults; tokens the target can't read, such as L on Vercel, drop out.
     assert.deepEqual(read('days', { presets: { day: defaults => [...defaults, 'L', '10-20'], weekday: ['1,3,5'] } }), [
         ['Every day *', 'On the 1st 1', 'On the 1st and 15th 1,15', 'On the 10th–20th 10-20'],

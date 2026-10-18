@@ -41,6 +41,7 @@ export {
     type MenuOptions,
     type Presets,
     type Preset,
+    type PresetInput,
     type Section,
 } from './model/menus.ts'
 export { chipWords } from './model/words.ts'

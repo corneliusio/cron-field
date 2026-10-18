@@ -68,14 +68,15 @@ Each chip's menu offers presets for its field. `presets` replaces them per field
 ```ts
 createCronField(element, {
     presets: {
-        hour: ['*', '8-18', '12'],
+        hour: ['*', { token: '8-18', label: 'Business hours' }, '12'],
         weekday: defaults => [...defaults, '1,3,5'],
     },
 })
 ```
 
-A preset is a token in the target's syntax; tokens the target can't read are left out. Its label is the chip's own words for that token, so a
-preset reads the same as the chip after you pick it, and needs no message of its own. Where the target reads occurrence rules such as
+A preset is a token in the target's syntax; tokens the target can't read are left out. A bare token's label is the chip's own words for it, so
+the preset reads the same as the chip after you pick it, and needs no message of its own. `{ token, label }` sets the label instead; it is shown as
+given, so pass it already translated. Where the target reads occurrence rules such as
 `1#2`, both day chips share a Days menu and those tokens go into its occurrence section; elsewhere each day chip has its own menu. On `<cron-field>`, `presets` is a property.
 
 ## Translation

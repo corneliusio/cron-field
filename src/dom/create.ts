@@ -55,7 +55,7 @@ export type CronFieldOptionsOf<T> = {
     weekStart?: number | undefined
     describe?: Describe | undefined
     parts?: Parts | undefined
-    /** Preset tokens per field, replacing the defaults or, as a function, built from them; see `Presets`. */
+    /** Presets per field, replacing the defaults or, as a function, built from them; see `Presets`. */
     presets?: Presets | undefined
     /** `content` (default): chips share the row by the length of their token. `equal`: every chip gets the same share. */
     chipWidth?: 'content' | 'equal' | undefined

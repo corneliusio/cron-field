@@ -34,11 +34,13 @@ export type MenuKey = FieldKey | 'days'
 /** A menu. The Days menu shows its presets as pills, with a dot on each heading. */
 export type Menu = { key: MenuKey; title: string; sections: Section[] }
 
+/** A preset given as a token, labeled with the chip's words, or as a token with its own label. */
+export type PresetInput = string | { token: string; label: string }
 /**
- * Preset tokens per field, replacing the defaults or, as a function, built from them. Tokens are in the target's
- * syntax. Day-of-week tokens with `#` or `L` go into the Days menu's occurrence section.
+ * Presets per field, replacing the defaults or, as a function, built from them. Tokens are in the target's syntax.
+ * Day-of-week tokens with `#` or `L` go into the Days menu's occurrence section.
  */
-export type Presets = Partial<Record<FieldKey, string[] | ((defaults: string[]) => string[])>>
+export type Presets = Partial<Record<FieldKey, PresetInput[] | ((defaults: string[]) => PresetInput[])>>
 export type MenuOptions = FormatOptions & {
     presets?: Presets | undefined
     /** The current year, for the year presets. Defaults to the runtime's. */
@@ -116,18 +118,24 @@ const defaults = (key: FieldKey, c: Compiled, year: number): string[] => {
 
 /**
  * A field's presets: the defaults or the `presets` option, the ones the target reads and `keep` allows, each labeled
- * with the chip's words.
+ * with its own label or the chip's words.
  */
 const presetsFor = (key: FieldKey, c: Compiled, year: number, f: Formatter, presets: Presets | undefined, keep?: (p: ParsedField) => boolean): Preset[] => {
     const given = presets?.[key]
-    const tokens = typeof given === 'function' ? given(defaults(key, c, year)) : (given ?? defaults(key, c, year))
+    const inputs = typeof given === 'function' ? given(defaults(key, c, year)) : (given ?? defaults(key, c, year))
     const every = key === 'day' || key === 'weekday' ? f.t('preset.everyDay') : f.t('field.every', { field: key })
 
-    return tokens.flatMap((token): Preset[] => {
+    return inputs.flatMap((input): Preset[] => {
+        const token = typeof input === 'string' ? input : input.token
         const p = parseField(token, key, c.profile)
+
+        if (!p.ok || !(keep?.(p) ?? true)) {
+            return []
+        }
+
         const words = fieldWords(p, key, f)
 
-        return p.ok && (keep?.(p) ?? true) ? [[words ? f.cap(words) : every, token]] : []
+        return [[typeof input === 'string' ? (words ? f.cap(words) : every) : input.label, token]]
     })
 }
 
