@@ -318,7 +318,7 @@ test('a message’s fix applies its change and focuses the chip, or the input in
     assert.equal(find<HTMLInputElement>(root, '[data-part="input"]').value, '0 5-23/15 * * *')
 })
 
-test('a form reset puts back the first value when the field submits with the form, else keeps its value, and never leaves the input blank', async () => {
+test('a form reset puts back the first value when the field submits with the form, else keeps its value, never leaves the input blank, and restores the mode', async () => {
     for (const [name, expected] of [
         ['schedule', '0 9 * * 1-5'],
         [undefined, '15 10 * * *'],
@@ -333,6 +333,15 @@ test('a form reset puts back the first value when the field submits with the for
         assert.equal(input.value, expected, `name: ${name}`)
         assert.equal(tokens(root), expected, `name: ${name}`)
     }
+
+    // The mode goes back to how the field opened.
+    const { form, root } = mount({ value: '0 9 * * 1-5', defaultMode: 'cron' })
+
+    find(root, '[data-part="mode-toggle"]').click()
+    assert.ok(!root.hasAttribute('data-raw'))
+    form.reset()
+    await tick()
+    assert.ok(root.hasAttribute('data-raw'))
 })
 
 test('setOptions re-describes a value that fits the new target, switches to Edit as cron when it doesn’t, and leaves an open menu alone when nothing shows a change', () => {
@@ -366,6 +375,15 @@ test('setOptions re-describes a value that fits the new target, switches to Edit
     sameNode(menuOf(root), null)
     assert.ok(root.hasAttribute('data-raw'))
     assert.equal(find(root, '[data-part="message"]').textContent, 'Quartz needs 6 fields. This has 5.')
+
+    // Edit as cron that a target forced closes once the value fits again; one the user opened stays open.
+    field.setOptions({ target: 'vixie' })
+    assert.ok(!root.hasAttribute('data-raw'))
+
+    find(root, '[data-part="mode-toggle"]').click()
+    field.setOptions({ target: 'quartz' })
+    field.setOptions({ target: 'vixie' })
+    assert.ok(root.hasAttribute('data-raw'))
 })
 
 test('a disabled field closes its menu, ignores presets and keys, and drops out of the form', () => {

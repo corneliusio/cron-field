@@ -130,6 +130,9 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
     const first = initial.value ?? ''
     const chips = new Map<FieldKey, ChipRefs>()
     const cleanups: (() => void)[] = []
+    const opensRaw = initial.defaultMode === 'cron'
+    /** Whether the chips can show the value: it has the target's number of fields. */
+    const fits = () => tokenize(value, target.profile).length === target.profile.fields.length
 
     let options: CronFieldOptionsOf<T> = { ...initial }
     let fmt = formatter(options, engine)
@@ -138,7 +141,9 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
     let value = options.value ?? ''
     let compiled: Compiled = compile(value, target.profile)
     let state: Status = statusOf(value, compiled, target, { ...options, fmt, engine })
-    let raw = options.defaultMode === 'cron' || tokenize(value, target.profile).length !== target.profile.fields.length
+    let raw = opensRaw || !fits()
+    // Edit as cron opened because the chips couldn't show the value, rather than by the user or `defaultMode`.
+    let forced = raw && !opensRaw
     let typing = false
     let before = value
     let openField: FieldKey | null = null
@@ -723,6 +728,7 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
         before = value
         openField = null
         raw = true
+        forced = false
         render(false)
         input.focus()
     }
@@ -742,6 +748,7 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
         }
 
         raw = false
+        forced = false
         typing = false
         render(false)
         toggle.focus()
@@ -841,17 +848,24 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
         paintLabels()
     }
 
+    /** Edit as cron opens for a value the chips can't show, and closes once they can, unless the user opened it or is typing. */
+    const followValue = () => {
+        if (!fits()) {
+            forced ||= !raw
+            raw = true
+        } else if (forced && !typing) {
+            forced = false
+            raw = false
+        }
+    }
+
     /** Takes a value from outside: it replaces what Edit as cron shows, and becomes what Escape returns to. */
     const replace = (next: string) => {
         value = next
         recompute()
         input.value = value
         before = value
-
-        if (tokenize(value, target.profile).length !== target.profile.fields.length) {
-            raw = true
-        }
-
+        followValue()
         render(true)
     }
 
@@ -895,7 +909,12 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
     // value when it submits with the form, else the value it holds.
     listen('reset', event => {
         if (event.target instanceof HTMLFormElement && event.target.contains(root)) {
-            setTimeout(() => replace(options.name ? first : value))
+            setTimeout(() => {
+                // The mode goes back to how the field opened too.
+                raw = opensRaw
+                forced = false
+                replace(options.name ? first : value)
+            })
         }
     })
     listen('keydown', event => {
@@ -954,8 +973,8 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
             }
 
             // A value that doesn't fit the new target's fields is edited as cron, as setValue does.
-            if (!sameProfile && tokenize(value, target.profile).length !== target.profile.fields.length) {
-                raw = true
+            if (!sameProfile) {
+                followValue()
             }
 
             recompute()
