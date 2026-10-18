@@ -60,6 +60,21 @@ test('the fallback input seeds the value and name on first connection; the value
     assert.deepEqual([attributed.value, tokens(attributed)], ['15 * * * *', '15 * * * *'])
 })
 
+test('while the page is still loading, the element waits for its fallback input before reading it', () => {
+    const element = document.createElement('cron-field') as CronFieldElement
+    const fallback = document.createElement('input')
+
+    Object.defineProperty(document, 'readyState', { value: 'loading', configurable: true })
+    document.body.append(element)
+    fallback.name = 'schedule'
+    fallback.value = '0 9 * * 1-5'
+    element.append(fallback)
+    Reflect.deleteProperty(document, 'readyState')
+    document.dispatchEvent(new Event('DOMContentLoaded'))
+
+    assert.deepEqual([element.value, element.name, tokens(element)], ['0 9 * * 1-5', 'schedule', '0 9 * * 1-5'])
+})
+
 test('a value set before connection, or even before the element is defined, survives', () => {
     const detached = document.createElement('cron-field')
 

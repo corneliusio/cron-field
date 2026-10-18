@@ -153,6 +153,14 @@ export class CronFieldElement extends HTMLElement {
     }
 
     connectedCallback() {
+        // Defined by a script that runs before the page is parsed, the element connects before its children, the fallback input
+        // among them. It waits for them; until then the fallback input is the field.
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.isConnected && !this.#field && this.connectedCallback(), { once: true })
+
+            return
+        }
+
         const fallback = this.querySelector('input')
 
         // The attribute and the fallback input seed the first connection only, unless a value was set before it; a moved
