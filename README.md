@@ -3,7 +3,7 @@
 A cron schedule field. Each cron field is a chip; its menu offers presets for that field, and Edit as cron swaps the chips for one text input. The field
 parses, writes and describes schedules in the syntax of the target that will run them.
 
-Not published yet. `prototype/`, `concepts/` and `review/` hold the earlier explorations.
+Not published yet.
 
 ## Use
 
@@ -172,8 +172,6 @@ nextRuns(compile('0 9 * * 1-5', TARGETS.github), { count: 3 }) // Temporal.Zoned
 - Parser libraries still work in Date, so wrap their targets: `fromDateTarget(croner(Cron))`. That is the one place the entry touches Date.
 - Known gap: Node 26 drops the zero-padding of Japanese 24-hour times through Temporal (7:05, where `cron-field` gives 07:05).
 
-`demo/temporal.html` runs it against `dist/`.
-
 ## Develop
 
 ```sh
@@ -181,6 +179,5 @@ pnpm test     # node --test, against croner, Effect and cron-parser
 pnpm check    # tsc and svelte-check
 pnpm lint
 pnpm build    # dist/
+pnpm verify   # all of the above, plus the format check
 ```
-
-`demo/index.html?css=theme|base|none` and `demo/element.html` run against `dist/` from any static server at the repository root.
