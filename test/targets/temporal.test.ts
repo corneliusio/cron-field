@@ -43,7 +43,7 @@ test('run times come back as ZonedDateTime in the schedule’s zone', () => {
 })
 
 test('names and times read the same spelled through Temporal', () => {
-    for (const locale of ['en', 'en-GB', 'de', 'fr', 'ja', 'ko', 'zh', 'ar', 'fa', 'he']) {
+    for (const locale of ['en', 'en-GB', 'de', 'fr', 'ja', 'ko', 'zh', 'zh-u-nu-hanidec', 'ar', 'fa', 'he']) {
         for (const hourCycle of ['h11', 'h12', 'h23', 'h24'] as const) {
             assert.deepEqual(probe(formatter({ locale, hourCycle })), probe(formatterDate({ locale, hourCycle })), `${locale} ${hourCycle}`)
         }

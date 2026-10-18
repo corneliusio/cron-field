@@ -68,13 +68,18 @@ const zoned = (time: number, timezone: string) => temporal().Instant.fromEpochMi
 
 /**
  * A two-digit hour the runtime left at one digit, padded in the locale's digits. The hour is the first digit on its own, as
- * minutes always have two; where the runtime already pads, nothing matches.
+ * minutes always have two; where the runtime already pads, nothing matches. Digits are the locale's own, since some, such as
+ * Chinese decimal ones, aren't Unicode digits.
  */
 const padHour = (text: string, tag: string, hour: number) => {
-    const digit = new Intl.NumberFormat(tag).format(hour)
+    const numbers = new Intl.NumberFormat(tag, { useGrouping: false })
+    const digits = `[\\p{Nd}${Array.from({ length: 10 }, (_, n) => numbers.format(n)).join('')}]`
 
     return hour < 10
-        ? text.replace(new RegExp(`(?<!\\p{Nd})${digit}(?!\\p{Nd})`, 'u'), new Intl.NumberFormat(tag, { minimumIntegerDigits: 2 }).format(hour))
+        ? text.replace(
+              new RegExp(`(?<!${digits})${numbers.format(hour)}(?!${digits})`, 'u'),
+              new Intl.NumberFormat(tag, { minimumIntegerDigits: 2 }).format(hour),
+          )
         : text
 }
 
