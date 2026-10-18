@@ -4,7 +4,7 @@
  * phrase is a catalog message, and every value is formatted for the locale.
  */
 import { formatter, type Formatter, type FormatOptions } from '../i18n/locale.ts'
-import { FIELDS, sorted, type FieldKey } from './fields.ts'
+import { FIELDS, MONTH_DAYS, sorted, type FieldKey } from './fields.ts'
 import { dayLogic, everyDay, type Compiled, type Issue, type ParsedField } from './syntax.ts'
 
 export type Shape =
@@ -14,7 +14,7 @@ export type Shape =
     | { k: 'step'; step: number; a: number; b: number; full: boolean; offset: boolean; vals: number[] }
 
 /** The most days a month can have, counting February's 29th. */
-const mostDays = (month: number) => (month === 2 ? 29 : new Date(2001, month, 0).getDate())
+const mostDays = (month: number) => (month === 2 ? 29 : (MONTH_DAYS[month - 1] ?? 31))
 
 /** The values a field covers, read as one of a few shapes the words are built from. */
 export const shape = (p: ParsedField, key: FieldKey): Shape => {
@@ -181,7 +181,8 @@ export const describe = (c: Compiled, options: DescribeOptions = {}): string | n
                 trailing = true
                 base = t('time.starting', { base, start: f.minute(mk.a) })
             }
-        } else if (mk.k === 'range') {
+        } else if (mk.k === 'range' || (mk.k === 'wrap' && hk.k === 'any')) {
+            // Minutes that wrap, such as 50-10, run on into the next hour only when every hour runs. Otherwise they are listed.
             base = t('time.everyMinuteFromTo', { start: f.minute(mk.a), end: f.minute(mk.b) })
         } else {
             base = t('time.at', { times: f.list(minutes.map(f.minute)) })
@@ -189,7 +190,7 @@ export const describe = (c: Compiled, options: DescribeOptions = {}): string | n
 
         if (hk.k === 'any' && mk.k === 'list') {
             time = t('time.pastEveryHour', { base })
-        } else if (hk.k === 'any' && minutesBounded) {
+        } else if (hk.k === 'any' && (minutesBounded || mk.k === 'wrap')) {
             trailing = true
             time = t('time.everyHour', { base })
         } else if (hk.k === 'one') {
@@ -227,7 +228,7 @@ export const describe = (c: Compiled, options: DescribeOptions = {}): string | n
 
         for (const item of domSpecial) {
             if (item.t === 'last') {
-                items.push(item.off ? t('dom.lastOffset', { n: item.off }) : t('dom.last'))
+                items.push(item.off ? t('dom.lastOffset', { n: item.off, nth: f.ordinal(item.off + 1) }) : t('dom.last'))
             } else {
                 items.push(item.t === 'lastWeekday' ? t('dom.lastWeekday') : t('dom.nearest', { day: f.ordinal(item.t === 'nearest' ? item.day : 0) }))
             }
@@ -337,18 +338,25 @@ export const describe = (c: Compiled, options: DescribeOptions = {}): string | n
     return t('sentence.end', { text: f.cap(text) })
 }
 
+export type NeverOptions = {
+    /** The current year, from the caller's engine, so a schedule whose years have all passed can say so. */
+    year?: number | undefined
+}
+
 /**
- * Why a valid schedule never runs, for the common case of a day the chosen months lack. The month list and
- * ordinal are formatted for the locale; `monthNumbers` and `dayNumber` carry the raw values.
+ * Why a valid schedule never runs, for the common cases: a day the chosen months lack, or years that have passed. The
+ * month list and ordinal are formatted for the locale; `monthNumbers` and `dayNumber` carry the raw values.
  */
-export const neverReason = (c: Compiled, f: Formatter = formatter()): Issue => {
+export const neverReason = (c: Compiled, f: Formatter = formatter(), { year }: NeverOptions = {}): Issue => {
     const pdom = c.parsed.day ?? any()
     const pmon = c.parsed.month ?? any()
     const days = sorted(pdom.set)
     const months = sorted(pmon.set)
+    const years = sorted(c.parsed.year?.set ?? [])
     const plain = pdom.items.every(item => item.t === 'range')
     const longest = Math.max(...months.map(mostDays))
     const first = days[0] ?? 0
+    const last = years.at(-1)
 
     if ((c.parsed.weekday?.star ?? true) && plain && first > longest) {
         return {
@@ -361,6 +369,10 @@ export const neverReason = (c: Compiled, f: Formatter = formatter()): Issue => {
                 monthNumbers: months.join(','),
             },
         }
+    }
+
+    if (year !== undefined && last !== undefined && last < year) {
+        return { id: 'never.pastYears', params: { year: last, count: years.length } }
     }
 
     return { id: 'never.generic', params: {} }

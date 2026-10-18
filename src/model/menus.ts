@@ -2,21 +2,35 @@
  * The chips' menus. Each menu is a list of sections, one field each: presets first, then the section's
  * own control. A preset is a cron token for its field; its label is the chip's own words for that token,
  * so a preset reads the same as the chip after you pick it. Presets the target can't read are left out.
- * Both day chips share the Days menu.
+ * Where the target reads occurrence rules, such as the second Monday, both day chips share the Days menu,
+ * since those rules sit between the two fields; elsewhere each day chip has its own menu.
  */
 import type { FieldKey } from '../core/fields.ts'
-import { compress, dayLogic, dowNumber, format, offsetToken, parseField, stepToken, tokenize, type Compiled, type SpecialItem } from '../core/syntax.ts'
+import {
+    compress,
+    dayLogic,
+    dowNumber,
+    format,
+    offsetToken,
+    parseField,
+    stepToken,
+    tokenize,
+    type Compiled,
+    type ParsedField,
+    type SpecialItem,
+} from '../core/syntax.ts'
 import { has, type TargetProfile } from '../core/targets.ts'
 import { formatter, type Formatter, type FormatOptions } from '../i18n/locale.ts'
 import { english, type Translator } from '../i18n/translate.ts'
-import { tokenWords } from './words.ts'
+import { fieldWords } from './words.ts'
 
 /** Preset changes, keyed by field. */
 export type Changes = Partial<Record<FieldKey, string>>
-export type Preset = [label: string, changes: Changes]
-export type Control = 'custom' | 'nth' | 'days'
+/** A preset: its label and its token for the section's field. */
+export type Preset = [label: string, token: string]
+type Control = 'custom' | 'nth' | 'days'
 export type Section = { field: FieldKey; title?: string; control: Control; holds?: (c: Compiled) => boolean; presets: Preset[] }
-export type MenuKey = Exclude<FieldKey, 'day' | 'weekday'> | 'days'
+export type MenuKey = FieldKey | 'days'
 /** A menu. The Days menu shows its presets as pills, with a dot on each heading. */
 export type Menu = { key: MenuKey; title: string; sections: Section[] }
 
@@ -31,10 +45,10 @@ export type MenuOptions = FormatOptions & {
     year?: number | undefined
 }
 
-export const menuOf = (field: FieldKey): MenuKey => (field === 'day' || field === 'weekday' ? 'days' : field)
+/** Whether the target reads occurrence rules, which put both day fields in one menu. */
+const occurrences = (profile: TargetProfile) => has(profile, 'nth') || has(profile, 'lastDow')
 
-/** Fields a menu writes to. */
-export const menuFields = (key: MenuKey): FieldKey[] => (key === 'days' ? ['day', 'weekday'] : [key])
+export const menuOf = (field: FieldKey, profile: TargetProfile): MenuKey => ((field === 'day' || field === 'weekday') && occurrences(profile) ? 'days' : field)
 
 export const dowSet = (c: Compiled): Set<number> => {
     const p = c.parsed.weekday
@@ -100,40 +114,44 @@ const defaults = (key: FieldKey, c: Compiled, year: number): string[] => {
     ]
 }
 
-/** A field's presets: the defaults or the `presets` option, the ones the target reads, each labeled with the chip's words. */
-const presetsFor = (key: FieldKey, c: Compiled, year: number, f: Formatter, presets: Presets | undefined): Preset[] => {
+/**
+ * A field's presets: the defaults or the `presets` option, the ones the target reads and `keep` allows, each labeled
+ * with the chip's words.
+ */
+const presetsFor = (key: FieldKey, c: Compiled, year: number, f: Formatter, presets: Presets | undefined, keep?: (p: ParsedField) => boolean): Preset[] => {
     const given = presets?.[key]
     const tokens = typeof given === 'function' ? given(defaults(key, c, year)) : (given ?? defaults(key, c, year))
-    const days = key === 'day' || key === 'weekday'
+    const every = key === 'day' || key === 'weekday' ? f.t('preset.everyDay') : f.t('field.every', { field: key })
 
-    return tokens
-        .filter(token => parseField(token, key, c.profile).ok)
-        .map((token): Preset => [
-            tokenWords(token, key, c.profile, f) ?? (days ? f.t('preset.everyDay') : f.t('field.every', { field: key })),
-            { [key]: token },
-        ])
+    return tokens.flatMap((token): Preset[] => {
+        const p = parseField(token, key, c.profile)
+        const words = fieldWords(p, key, f)
+
+        return p.ok && (keep?.(p) ?? true) ? [[words ? f.cap(words) : every, token]] : []
+    })
 }
 
 /** Occurrence rules are about the month but stored in the day of week, so they get their own section between the two. */
-const occurs = (preset: Preset, profile: TargetProfile) => {
-    const token = preset[1].weekday ?? ''
-
-    return parseField(token, 'weekday', profile).items.some(item => item.t === 'nth' || item.t === 'lastDow')
-}
+const occurs = (p: ParsedField) => p.items.some(item => item.t === 'nth' || item.t === 'lastDow')
 
 export const menu = (key: MenuKey, c: Compiled, options: MenuOptions = {}): Menu => {
     const profile = c.profile
     const f = options.fmt ?? formatter(options)
     const t = f.t
     const year = options.year ?? new Date().getFullYear()
-    const weekday = key === 'days' ? presetsFor('weekday', c, year, f, options.presets) : []
-    const occurrence = weekday.filter(preset => occurs(preset, profile))
 
     if (key !== 'days') {
         return {
             key,
             title: t('field.label', { field: key }),
-            sections: [{ field: key, control: 'custom', presets: presetsFor(key, c, year, f, options.presets) }],
+            sections: [
+                {
+                    field: key,
+                    control: key === 'weekday' ? 'days' : 'custom',
+                    // Called directly on a target that reads them, the weekday menu still leaves occurrence rules to the Days menu.
+                    presets: presetsFor(key, c, year, f, options.presets, key === 'weekday' && occurrences(profile) ? p => !occurs(p) : undefined),
+                },
+            ],
         }
     }
 
@@ -142,14 +160,14 @@ export const menu = (key: MenuKey, c: Compiled, options: MenuOptions = {}): Menu
         title: t('menu.days'),
         sections: [
             { field: 'day', title: t('field.label', { field: 'day' }), control: 'custom', presets: presetsFor('day', c, year, f, options.presets) },
-            ...(has(profile, 'nth') || has(profile, 'lastDow')
+            ...(occurrences(profile)
                 ? [
                       {
                           field: 'weekday' as const,
                           title: t('section.occurrence'),
                           control: 'nth' as const,
                           holds: (x: Compiled) => !!nthItem(x),
-                          presets: occurrence,
+                          presets: presetsFor('weekday', c, year, f, options.presets, occurs),
                       },
                   ]
                 : []),
@@ -158,7 +176,7 @@ export const menu = (key: MenuKey, c: Compiled, options: MenuOptions = {}): Menu
                 title: t('field.label', { field: 'weekday' }),
                 control: 'days',
                 holds: x => !nthItem(x),
-                presets: weekday.filter(preset => !occurrence.includes(preset)),
+                presets: presetsFor('weekday', c, year, f, options.presets, p => !occurs(p)),
             },
         ],
     }
@@ -174,10 +192,10 @@ export const sectionFilled = (section: Section, c: Compiled) => {
 /** `?` and `*` both mean "any" in the day fields, so presets compare them as one. */
 const same = (a: string | undefined, b: string) => (a === '?' ? '*' : a)?.toUpperCase() === (b === '?' ? '*' : b).toUpperCase()
 
-export const isCurrent = (c: Compiled, changes: Changes) => Object.entries(changes).every(([key, token]) => same(c.raws[key as FieldKey], token ?? '*'))
+export const isCurrent = (c: Compiled, field: FieldKey, token: string) => same(c.raws[field], token)
 
-/** The value a field takes when the schedule has to be rebuilt from scratch. */
-const fresh = (key: FieldKey) => (key === 'second' ? '0' : '*')
+/** The value a field takes when the schedule has to be rebuilt from scratch: on the hour, not every minute. */
+const fresh = (key: FieldKey) => (key === 'second' || key === 'minute' ? '0' : '*')
 
 /**
  * The value with changes applied, in the target's syntax. Where the target allows only one day field,
@@ -212,7 +230,7 @@ export const toggleDay = (c: Compiled, day: number): Changes => {
     return { weekday: on.size === 0 || on.size === 7 ? '*' : compress([...on], 'weekday', c.profile, false) }
 }
 
-/** A note for the Days menu on how the two day fields combine, when that matters. */
+/** A note for the day menus on how the two day fields combine, when that matters. */
 export const daysNote = (c: Compiled, t: Translator = english): string | null => {
     const logic = dayLogic(c)
 

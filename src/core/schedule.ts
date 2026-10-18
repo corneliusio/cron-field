@@ -2,24 +2,25 @@
  * The built-in matcher: upcoming runs of a compiled schedule, by the target's rules. Adapters replace
  * it with the parser library that actually runs the job; this one covers targets with no library,
  * such as Vercel or GitHub Actions, and checks whether a schedule runs at all. It works in plain calendar
- * numbers and epoch milliseconds; a clock does the time-zone conversion.
+ * numbers and epoch milliseconds; an engine does the time-zone conversion.
  */
-import { dateClock, type Clock } from './clock.ts'
-import { sorted } from './fields.ts'
+import { dateEngine, type Engine } from './engine.ts'
+import { MONTH_DAYS, sorted } from './fields.ts'
 import { dayLogic, type Compiled, type ParsedField } from './syntax.ts'
 
-export type NextRunsOptions = {
-    from?: Date
-    count?: number
+export type RunsOptions = {
+    from: Date
+    count: number
     /** An IANA zone such as `America/Chicago`, or `UTC`. Omitted means the runtime's local time. */
-    timezone?: string
+    timezone?: string | undefined
 }
 
-export type MatchOptions = { from: number; count: number; timezone?: string | undefined }
+type MatchOptions = { from: number; count: number; timezone?: string | undefined }
 
 /** Years searched past the start when the schedule has no year field: long enough for Feb 29 on a given weekday. */
 const HORIZON_YEARS = 50
-const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+/** More than any offset change, so wall times scanned this far past the runs found can't fall before them. */
+const SETTLE = 3 * 60 * 60 * 1000
 // Sakamoto's method: a month's offset in the weekday cycle.
 const MONTH_SHIFT = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4]
 
@@ -35,6 +36,9 @@ const weekdayOf = (y: number, mo: number, d: number) => {
 }
 
 const values = (p: ParsedField | undefined, fallback: number[]) => (p ? sorted(p.set) : fallback)
+
+/** A run count as a whole number from 0. A fraction or NaN is never reached, so a search for it would scan the whole horizon. */
+export const runCount = (count: number) => Math.max(0, Math.floor(count)) || 0
 
 const nearestWeekday = (y: number, mo: number, day: number) => {
     const last = daysInMonth(y, mo)
@@ -99,10 +103,16 @@ export const dayMatches = (c: Compiled, y: number, mo: number, d: number) => {
     return logic === 'or' ? dom() || dow() : dom() && dow()
 }
 
-/** The next runs after `from`, in epoch milliseconds, by the built-in matcher and a clock. Empty when the schedule doesn't parse or never runs. */
-export const matchRuns = (c: Compiled, { from, count, timezone }: MatchOptions, clock: Clock): number[] => {
+/**
+ * The next runs after `from`, in epoch milliseconds, by the built-in matcher and an engine. Empty when the schedule doesn't parse or
+ * never runs. Wall times map to instants in order, except that a DST gap moves its wall times forward, past later ones; when a run
+ * came from a gap, the scan goes on until `SETTLE` past the runs found, then sorts.
+ */
+export const matchRuns = (c: Compiled, { from, count: wanted, timezone }: MatchOptions, engine: Engine): number[] => {
+    const count = runCount(wanted)
     const out: number[] = []
-    const start = clock.wall(from, timezone)
+    const settled = () => out.sort((a, b) => a - b).slice(0, count)
+    const start = engine.wall(from, timezone)
     const seconds = values(c.parsed.second, [0])
     const minutes = values(c.parsed.minute, range(0, 59))
     const hours = values(c.parsed.hour, range(0, 23))
@@ -112,7 +122,10 @@ export const matchRuns = (c: Compiled, { from, count, timezone }: MatchOptions, 
         ? values(c.parsed.year, []).filter(y => y >= start.y && (!c.parsed.year?.star || y <= start.y + HORIZON_YEARS))
         : range(start.y, start.y + HORIZON_YEARS)
 
-    if (!c.ok) {
+    let bound = Infinity
+    let gap = false
+
+    if (!c.ok || !count) {
         return out
     }
 
@@ -130,18 +143,39 @@ export const matchRuns = (c: Compiled, { from, count, timezone }: MatchOptions, 
                 for (const h of hours) {
                     for (const mi of minutes) {
                         // Offsets change on whole minutes, so one conversion per minute covers its seconds.
-                        const minute = clock.instant({ y, mo, d, h, mi, s: 0 }, timezone)
+                        const minute = engine.instant({ y, mo, d, h, mi, s: 0 }, timezone)
+
+                        if (minute > bound) {
+                            return settled()
+                        }
+
+                        const found = out.length
 
                         for (const s of seconds) {
                             const time = minute + s * 1000
 
                             if (time > from && !out.includes(time)) {
                                 out.push(time)
-
-                                if (out.length >= count) {
-                                    return out
-                                }
                             }
+                        }
+
+                        if (out.length > found && !gap) {
+                            const wall = engine.wall(minute, timezone)
+
+                            gap = wall.h !== h || wall.mi !== mi
+                        }
+
+                        // Only the earliest `count` matter; trimming keeps the settling scan cheap with seconds.
+                        if (out.length > count) {
+                            out.splice(0, out.length, ...settled())
+                        }
+
+                        if (out.length >= count && !gap) {
+                            return settled()
+                        }
+
+                        if (out.length >= count && bound === Infinity) {
+                            bound = Math.max(...out) + SETTLE
                         }
                     }
                 }
@@ -149,9 +183,9 @@ export const matchRuns = (c: Compiled, { from, count, timezone }: MatchOptions, 
         }
     }
 
-    return out
+    return settled()
 }
 
 /** The next runs after `from`, by the built-in matcher. Empty when the schedule doesn't parse or never runs. */
-export const nextRuns = (c: Compiled, { from = new Date(), count = 1, timezone = c.profile.timezone }: NextRunsOptions = {}): Date[] =>
-    matchRuns(c, { from: from.getTime(), count, timezone }, dateClock).map(time => new Date(time))
+export const nextRuns = (c: Compiled, { from = new Date(), count = 1, timezone = c.profile.timezone }: Partial<RunsOptions> = {}): Date[] =>
+    matchRuns(c, { from: from.getTime(), count, timezone }, dateEngine).map(time => new Date(time))

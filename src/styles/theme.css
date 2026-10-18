@@ -274,11 +274,11 @@
     box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--_cron-field-ring) 24%, transparent);
 }
 
-:where(.cron-field) input:where([data-part='input'], [data-part='custom-input']):where([aria-invalid]) {
+:where(.cron-field) input:where([data-part='input'], [data-part='custom-input']):where([aria-invalid='true']) {
     border-color: color-mix(in oklab, var(--_cron-field-error-tint) 36%, transparent);
 }
 
-:where(.cron-field) input:where([data-part='input'], [data-part='custom-input']):where([aria-invalid]:focus) {
+:where(.cron-field) input:where([data-part='input'], [data-part='custom-input']):where([aria-invalid='true']:focus) {
     border-color: color-mix(in oklab, var(--_cron-field-error-tint) 64%, transparent);
     box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--_cron-field-error-tint) 16%, transparent);
 }

@@ -38,6 +38,8 @@ export const croner = (Cron: CronerClass, options: CronerOptions = {}): Target =
             days: domAndDow ? 'and' : 'or',
             weekdayBase: alternativeWeekdays ? 1 : 0,
             stepStart: sloppyRanges,
+            // croner reads shortcuts as five fields, so its 6- and 7-part modes refuse them.
+            ...(parts > 5 ? { macros: {} } : {}),
             ...(timezone ? { timezone } : {}),
         },
         validate: value => {

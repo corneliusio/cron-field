@@ -7,8 +7,8 @@
 import { defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch, type PropType } from 'vue'
 import type { TargetInput } from '../core/target.ts'
 import { createCronField, type ChangeDetail, type CronFieldInstance, type CronFieldOptions } from '../dom/create.ts'
-import { translator } from '../i18n/index.ts'
 import type { HourCycle } from '../i18n/locale.ts'
+import { translator } from '../i18n/translate.ts'
 
 export const CronField = defineComponent({
     name: 'CronField',

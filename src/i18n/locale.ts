@@ -4,6 +4,7 @@
  * catalog, since Intl can't spell them. One formatter carries the translator too, so everything that builds
  * words takes a single argument.
  */
+import type { Engine } from '../core/engine.ts'
 import { english, translator, type Translate, type Translator } from './translate.ts'
 
 /** As in Intl: h12 runs 12, 1–11 AM/PM; h11 runs 0–11 AM/PM; h23 runs 00–23; h24 runs 01–24. */
@@ -47,7 +48,7 @@ export type Formatter = {
 /** The parts of a date or time to spell: a month and day, or an hour and minute. */
 export type SpellParts = { month?: number; day?: number; hour?: number; minute?: number }
 
-/** Spells date parts with Intl options, through some date library. The field's own default is Date; the Temporal entry passes one on Temporal. */
+/** Spells date parts with Intl options, through some date library. Part of an engine; the default spells through Date. */
 export type Spell = (locale: string, options: Intl.DateTimeFormatOptions, parts: SpellParts) => string
 
 type IntlLocale = Intl.Locale & { getWeekInfo?: () => { firstDay: number }; weekInfo?: { firstDay: number } }
@@ -98,10 +99,23 @@ export const localeWeekStart = (locale: string): number => {
     return info ? info.firstDay % 7 : 1
 }
 
-export const formatter = (options: FormatterOptions = {}, spell: Spell = spellDate): Formatter => {
-    const locale = options.locale ?? 'en'
+/** The locale tag, or English, with a warning, for a tag the runtime can't read. */
+const readLocale = (locale: string) => {
+    try {
+        return Intl.getCanonicalLocales(locale)[0] ?? 'en'
+    } catch {
+        console.warn(`cron-field: unknown locale “${locale}”; using English.`)
+
+        return 'en'
+    }
+}
+
+/** The formatter for locale options. `engine` supplies the spelling; without one it spells through Date. */
+export const formatter = (options: FormatterOptions = {}, engine?: Pick<Engine, 'spell'>): Formatter => {
+    const spell = engine?.spell ?? spellDate
+    const locale = options.locale ? readLocale(options.locale) : 'en'
     const hourCycle = options.hourCycle ?? localeHourCycle(locale)
-    const weekStart = options.weekStart ?? (options.locale ? localeWeekStart(options.locale) : 1)
+    const weekStart = options.weekStart ?? (options.locale ? localeWeekStart(locale) : 1)
     const t = options.translate ? translator(options.translate) : english
     const twentyFour = hourCycle === 'h23' || hourCycle === 'h24'
     // Some runtimes put a narrow no-break space before AM; a plain space reads the same everywhere.
@@ -119,7 +133,8 @@ export const formatter = (options: FormatterOptions = {}, spell: Spell = spellDa
         hour: hour => (twentyFour ? time(hour, 0) : plain(spell(locale, { hour: 'numeric', hourCycle }, { hour }))),
         minute: minute => t('format.minute', { minute: pad(minute) }),
         second: second => t('format.second', { second: pad(second) }),
-        month: (month, width = 'long') => spell(locale, { month: width }, { month }),
+        // Cron months are Gregorian, whatever calendar the locale uses.
+        month: (month, width = 'long') => spell(locale, { month: width, calendar: 'gregory' }, { month }),
         // 7 January 2001 was a Sunday.
         weekday: (day, width = 'long') => spell(locale, { weekday: width }, { month: 1, day: 7 + day }),
         ordinal: n => t('format.ordinal', { n }),

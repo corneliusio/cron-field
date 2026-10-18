@@ -51,8 +51,12 @@ import { Cron } from 'croner'
 createCronField(element, { target: croner(Cron, { domAndDow: true, timezone: 'America/Chicago' }) })
 ```
 
-With an adapter, validation and "never runs" checks come from the library. `describe` replaces the sentence under the field, for another language or
-another describer.
+The adapters need croner 10, cron-parser 5 and Effect 4 or later. Earlier majors take other options or return other shapes, and the adapters don't
+detect that.
+
+With an adapter, the library also validates the value, and upcoming runs come from it. Whether a schedule runs at all is always checked by the
+built-in matcher, which looks 50 years ahead; a schedule with fewer runs in that span returns only those. `describe` replaces the sentence under the
+field, for another language or another describer.
 
 `hourCycle` sets how times read in chip labels, hour presets and the sentence: `h12` (the default, "9:00 AM"), `h11`, `h23` ("09:00") or `h24`, as
 in `Intl`. On `<cron-field>` it is the `hourcycle` attribute.
@@ -71,8 +75,8 @@ createCronField(element, {
 ```
 
 A preset is a token in the target's syntax; tokens the target can't read are left out. Its label is the chip's own words for that token, so a
-preset reads the same as the chip after you pick it, and needs no message of its own. Day-of-week tokens with `#` or `L` go into the Days menu's
-occurrence section. On `<cron-field>`, `presets` is a property.
+preset reads the same as the chip after you pick it, and needs no message of its own. Where the target reads occurrence rules such as
+`1#2`, both day chips share a Days menu and those tokens go into its occurrence section; elsewhere each day chip has its own menu. On `<cron-field>`, `presets` is a property.
 
 ## Translation
 
@@ -104,11 +108,11 @@ Svelte and Vue.
 
 Three levels, one import each. The field works at all of them.
 
-| Import                 | Gives                                                                     |
-| ---------------------- | ------------------------------------------------------------------------- |
-| nothing                | Browser-default controls; menus and labels are popovers the browser hides |
-| `cron-field/base.css`  | Layout only, at zero specificity                                          |
-| `cron-field/theme.css` | The default look; includes base                                           |
+| Import                 | Gives                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| nothing                | Browser-default controls; menus and labels are popovers the browser hides     |
+| `cron-field/base.css`  | Layout only, at zero specificity except the rule that keeps `[hidden]` hidden |
+| `cron-field/theme.css` | The default look; includes base                                               |
 
 Every element has `data-part` and state attributes (`data-field`, `data-any`, `data-invalid`, `data-target`, `aria-expanded`, `aria-current`,
 `aria-pressed`). Theme rules are element-level, so any single class overrides them. The `parts` option adds a class and inline style per part, as a
@@ -127,6 +131,8 @@ parts: {
     }
 }
 ```
+
+A new `parts` object repaints the field, so in React, Svelte and Vue define it once rather than inline in the render.
 
 With Tailwind v4, import the theme below utilities: `@import 'cron-field/theme.css' layer(components);`.
 
@@ -172,8 +178,9 @@ nextRuns(compile('0 9 * * 1-5', TARGETS.github), { count: 3 }) // Temporal.Zoned
 
 - `nextRuns` and `upcoming` take `from` as a `Temporal.Instant` or `ZonedDateTime` and return `ZonedDateTime`s in the schedule's zone.
 - The field, the sentence and the chip labels work as in `cron-field`; times and names are spelled through Temporal.
+- Both entries run on an `Engine`, which does time zones, the current time and spelling: `dateEngine` in `cron-field`, `temporalEngine` here.
 - Parser libraries still work in Date, so wrap their targets: `fromDateTarget(croner(Cron))`. That is the one place the entry touches Date.
-- Known gap: Node 26 drops the zero-padding of Japanese 24-hour times through Temporal (7:05, where `cron-field` gives 07:05).
+- Known gap: Node 26 drops the zero-padding of 24-hour times through Temporal in some locales, such as Japanese and Persian (7:05, where `cron-field` gives 07:05).
 
 ## Develop
 

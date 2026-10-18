@@ -6,7 +6,7 @@
  */
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type CSSProperties, type Ref } from 'react'
 import { createCronField, type ChangeDetail, type CronFieldInstance, type CronFieldOptions } from '../dom/create.ts'
-import { translator } from '../i18n/index.ts'
+import { translator } from '../i18n/translate.ts'
 
 export type CronFieldProps = Omit<CronFieldOptions, 'value' | 'onChange'> & {
     /** Controlled: a change the parent doesn't take is put back. Use `defaultValue` to leave the field in charge. */

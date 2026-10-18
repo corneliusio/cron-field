@@ -1,5 +1,3 @@
-import type { TargetInput } from '../core/target.ts'
-import type { TargetName } from '../core/targets.ts'
 /*
  * <cron-field>: the field as a form-associated custom element, for plain HTML and server-rendered pages.
  * It submits its value with forms, resets with them, and reports validity, so `:invalid` and
@@ -11,9 +9,11 @@ import type { TargetName } from '../core/targets.ts'
  * Attributes: value, target, label, labelledby, name, disabled, timezone, hourcycle, locale, weekstart, chipwidth. Adapter targets,
  * `describe`, `parts`, `presets` and `translateMessage` (the `translate` option) are properties.
  */
+import type { TargetInput } from '../core/target.ts'
+import type { TargetName } from '../core/targets.ts'
 import { createCronField, type ChangeDetail, type CronFieldInstance, type CronFieldOptions } from '../dom/create.ts'
-import { translator } from '../i18n/index.ts'
 import type { HourCycle } from '../i18n/locale.ts'
+import { translator } from '../i18n/translate.ts'
 import type { Status } from '../model/messages.ts'
 
 /** Options set as properties rather than attributes. */
@@ -21,6 +21,7 @@ type Extra = Pick<CronFieldOptions, 'describe' | 'parts' | 'presets' | 'translat
 
 const HOUR_CYCLES: HourCycle[] = ['h11', 'h12', 'h23', 'h24']
 const ATTRIBUTES = ['value', 'target', 'label', 'labelledby', 'name', 'disabled', 'timezone', 'hourcycle', 'locale', 'weekstart', 'chipwidth'] as const
+const PROPERTIES = ['value', 'target', 'describe', 'translateMessage', 'parts', 'presets', 'disabled', 'name'] as const
 
 export class CronFieldElement extends HTMLElement {
     static formAssociated = true
@@ -31,16 +32,66 @@ export class CronFieldElement extends HTMLElement {
     #value = ''
     #default = ''
     #started = false
+    #assigned = false
     #extra: Extra = {}
+
+    // Raw mode hides the chips or the input, so validity has to point at the other one.
+    #modes = new MutationObserver(() => this.#sync())
+
+    constructor() {
+        super()
+        // A <label for> clicks the element itself; take that to the field, as a label does for an input.
+        this.addEventListener('click', event => {
+            if (event.target === this) {
+                this.focus()
+            }
+        })
+
+        // The inner inputs' own events stay inside: the element fires one input and one change per committed value.
+        for (const type of ['input', 'change']) {
+            this.addEventListener(type, event => {
+                if (event.target !== this) {
+                    event.stopPropagation()
+                }
+            })
+        }
+
+        // A property set before the element was defined is the element's own and hides the accessor, so set it again through the accessor.
+        for (const key of PROPERTIES) {
+            if (Object.hasOwn(this, key)) {
+                const value: unknown = Reflect.get(this, key)
+
+                Reflect.deleteProperty(this, key)
+                Reflect.set(this, key, value)
+            }
+        }
+    }
 
     get value() {
         return this.#field?.value ?? this.#value
     }
 
     set value(next: string) {
+        this.#assigned = true
         this.#value = next
         this.#field?.setValue(next)
         this.#sync()
+    }
+
+    get name() {
+        return this.getAttribute('name') ?? ''
+    }
+
+    set name(name: string) {
+        this.setAttribute('name', name)
+    }
+
+    get disabled() {
+        return this.hasAttribute('disabled')
+    }
+
+    set disabled(disabled: boolean) {
+        this.toggleAttribute('disabled', disabled)
     }
 
     get status(): Status | null {
@@ -104,11 +155,12 @@ export class CronFieldElement extends HTMLElement {
     connectedCallback() {
         const fallback = this.querySelector('input')
 
-        // The attribute and the fallback input seed the first connection only; a moved element keeps its edits.
+        // The attribute and the fallback input seed the first connection only, unless a value was set before it; a moved
+        // element keeps its edits.
         if (!this.#started) {
             this.#started = true
-            this.#value = this.getAttribute('value') ?? fallback?.value ?? ''
-            this.#default = this.#value
+            this.#default = this.getAttribute('value') ?? fallback?.value ?? ''
+            this.#value = this.#assigned ? this.#value : this.#default
 
             if (fallback?.name && !this.hasAttribute('name')) {
                 this.setAttribute('name', fallback.name)
@@ -116,10 +168,12 @@ export class CronFieldElement extends HTMLElement {
         }
 
         this.#field = createCronField(this, { ...this.#options(), value: this.#value, onChange: (value, detail) => this.#changed(value, detail) })
+        this.#modes.observe(this, { attributes: true, attributeFilter: ['data-raw'] })
         this.#sync()
     }
 
     disconnectedCallback() {
+        this.#modes.disconnect()
         this.#value = this.value
         this.#field?.destroy()
         this.#field = null
@@ -135,6 +189,13 @@ export class CronFieldElement extends HTMLElement {
 
     formResetCallback() {
         this.value = this.#default
+    }
+
+    /** Back navigation and autofill bring the submitted value back. */
+    formStateRestoreCallback(state: string | File | FormData | null) {
+        if (typeof state === 'string') {
+            this.value = state
+        }
     }
 
     formDisabledCallback() {
@@ -190,7 +251,9 @@ export class CronFieldElement extends HTMLElement {
     #sync() {
         const status = this.#field?.status
         const message = status && !status.valid ? (status.message?.text ?? translator(this.#extra.translate)('ui.invalid')) : ''
-        const anchor = this.querySelector<HTMLElement>('[data-part="chip"], [data-part="input"]') ?? undefined
+        // Validity points at what shows: the text input in Edit as cron, else the first chip.
+        const anchor =
+            this.querySelector<HTMLElement>('[data-part="input"]:not([hidden])') ?? this.querySelector<HTMLElement>('[data-part="chip"]') ?? undefined
 
         this.#internals.setFormValue(this.value)
         this.#internals.setValidity(message ? { customError: true } : {}, message, anchor)

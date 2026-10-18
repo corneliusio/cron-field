@@ -1,15 +1,15 @@
-import { dateClock, type Clock } from '../core/clock.ts'
 /*
  * The field in plain DOM. Each cron field is a chip in an input-sized box; a chip's menu offers presets
  * for its field and sits right after it, so Tab goes chip, its menu, next chip. Menus and chip labels are
  * popovers in the top layer, so a host's clipping can't cut them off, and the browser hides them without
  * any CSS. Edit as cron swaps the chips for one text input.
  */
+import { dateEngine, type Engine } from '../core/engine.ts'
 import type { FieldKey } from '../core/fields.ts'
 import { parseField, sample, tokenize, compile, type Compiled } from '../core/syntax.ts'
-import { resolveBase, type Target, type TargetBase } from '../core/target.ts'
+import { resolveAny, type Target, type TargetBase } from '../core/target.ts'
 import type { TargetName, TargetProfile } from '../core/targets.ts'
-import { formatter, spellDate, type HourCycle, type Spell } from '../i18n/locale.ts'
+import { formatter, type HourCycle } from '../i18n/locale.ts'
 import type { Translate } from '../i18n/translate.ts'
 import {
     applyChanges,
@@ -17,7 +17,6 @@ import {
     dowSet,
     isCurrent,
     menu as menuFor,
-    menuFields,
     menuOf,
     nthItem,
     nthOptions,
@@ -69,19 +68,15 @@ export type CronFieldInstanceOf<T> = {
     readonly value: string
     readonly status: Status
     setValue(value: string): void
-    setOptions(options: Partial<CronFieldOptionsOf<T>>): void
+    /** Every option but `value`, which goes through `setValue`. */
+    setOptions(options: Partial<Omit<CronFieldOptionsOf<T>, 'value'>>): void
     focus(): void
     destroy(): void
 }
 
 export type CronFieldInstance = CronFieldInstanceOf<Target>
 
-/** The date library under the field: a clock for run checks and the year, and how names and times are spelled. */
-export type Engine = { clock: Clock; spell: Spell }
-
-export const dateEngine: Engine = { clock: dateClock, spell: spellDate }
-
-type ChipRefs = { chip: HTMLButtonElement; token: HTMLSpanElement; label: HTMLSpanElement }
+type ChipRefs = { chip: HTMLButtonElement; token: HTMLSpanElement; head: HTMLSpanElement; tail: HTMLSpanElement; label: HTMLSpanElement }
 type Child = Node | string | null | undefined | false
 type Attrs = Record<string, string | number | boolean | null | undefined>
 
@@ -110,6 +105,15 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...
     return element
 }
 
+/** `aria-invalid` needs the word: a bare attribute reads as false. */
+const setInvalid = (element: HTMLElement, invalid: boolean) => {
+    if (invalid) {
+        element.setAttribute('aria-invalid', 'true')
+    } else {
+        element.removeAttribute('aria-invalid')
+    }
+}
+
 const icon = () => {
     const span = h('span', { 'data-part': 'check' })
 
@@ -121,20 +125,20 @@ const icon = () => {
 /** Builds the field on an engine. `createCronField` is this on Date; the Temporal entry builds it on Temporal. */
 export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTMLElement, initial: CronFieldOptionsOf<T> = {}): CronFieldInstanceOf<T> => {
     const uid = `cron-field-${++ids}`
+    const first = initial.value ?? ''
     const chips = new Map<FieldKey, ChipRefs>()
-    const customErrors: Partial<Record<FieldKey, string>> = {}
     const cleanups: (() => void)[] = []
 
     let options: CronFieldOptionsOf<T> = { ...initial }
-    let fmt = formatter(options, engine.spell)
+    let fmt = formatter(options, engine)
     let t = fmt.t
-    let target: TargetBase = resolveBase(options.target)
+    let target: TargetBase = resolveAny(options.target)
     let value = options.value ?? ''
     let compiled: Compiled = compile(value, target.profile)
-    let state: Status = statusOf(value, compiled, target, { ...options, fmt, clock: engine.clock })
+    let state: Status = statusOf(value, compiled, target, { ...options, fmt, engine })
     let raw = tokenize(value, target.profile).length !== target.profile.fields.length
     let typing = false
-    let before = ''
+    let before = value
     let openField: FieldKey | null = null
     let typeIn = false
     let targetField: FieldKey | null = null
@@ -167,7 +171,7 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
 
     const recompute = () => {
         compiled = compile(value, target.profile)
-        state = statusOf(value, compiled, target, { ...options, fmt, clock: engine.clock })
+        state = statusOf(value, compiled, target, { ...options, fmt, engine })
     }
 
     const emit = () => options.onChange?.(value, { ...state, value })
@@ -201,10 +205,6 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
         openField = field
         typeIn = typed
         targetField = null
-
-        for (const key of Object.keys(customErrors) as FieldKey[]) {
-            delete customErrors[key]
-        }
 
         render(false)
     }
@@ -260,13 +260,14 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
             const flip = menu.scrollHeight > below && above > below
             const left = Math.min(Math.max(chip.left, row.left), row.right - width)
 
+            // The unused side is `auto`, not empty: an empty value drops the inline rule, and the popover's own `inset: 0` comes back.
             Object.assign(menu.style, {
                 position: 'fixed',
                 inset: 'auto',
                 margin: '0',
                 left: `${Math.max(EDGE * u, Math.min(left, innerWidth - width - EDGE * u))}px`,
-                top: flip ? '' : `${row.bottom + GAP * u}px`,
-                bottom: flip ? `${innerHeight - row.top + GAP * u}px` : '',
+                top: flip ? 'auto' : `${row.bottom + GAP * u}px`,
+                bottom: flip ? `${innerHeight - row.top + GAP * u}px` : 'auto',
                 maxHeight: `${Math.max(flip ? above : below, MIN_MENU * u)}px`,
             })
         }
@@ -314,10 +315,10 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
         const issue = parseField(text, field, target.profile).error
         const error = issue ? issueText(issue, t) : ''
 
-        customErrors[field] = error
-        inputEl.toggleAttribute('aria-invalid', !!error)
+        setInvalid(inputEl, !!error)
         hintEl.toggleAttribute('data-invalid', !!error)
         hintEl.textContent = error || t('ui.pressEnter')
+        mark(inputEl, 'custom-input', { field, invalid: !!error })
         mark(hintEl, 'custom-hint', { field, invalid: !!error })
 
         return !error
@@ -343,8 +344,8 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
         const presets = h('div', { 'data-layout': pills ? 'pills' : 'list' })
         const sectionEl = h('div', { 'role': 'group', 'aria-labelledby': titleId, 'data-section-field': field }, heading, presets)
 
-        section.presets.forEach(([name, changes], k) => {
-            const current = isCurrent(compiled, changes)
+        section.presets.forEach(([name, token], k) => {
+            const current = isCurrent(compiled, field, token)
             const button = h(
                 'button',
                 { 'type': 'button', 'data-item': true, 'data-pill': pills, 'data-key': `preset:${index}:${k}`, 'aria-current': current ? 'true' : null },
@@ -356,7 +357,7 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
             }
 
             mark(button, 'preset', { field, selected: current })
-            button.addEventListener('click', () => apply(changes))
+            button.addEventListener('click', () => apply({ [field]: token }))
             presets.append(button)
         })
 
@@ -368,11 +369,11 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
                 'data-key': `custom:${field}`,
                 'aria-label': t('ui.asCron', { label: t('field.label', { field }) }),
                 'aria-describedby': `${uid}-custom-${field}`,
-                'aria-invalid': customErrors[field] ? 'true' : null,
             })
-            const note = h('p', { 'id': `${uid}-custom-${field}`, 'data-invalid': !!customErrors[field] }, customErrors[field] || t('ui.pressEnter'))
+            const note = h('p', { id: `${uid}-custom-${field}` })
 
             custom.value = compiled.raws[field] ?? ''
+            checkCustom(field, custom.value, custom, note)
             custom.addEventListener('input', () => checkCustom(field, custom.value, custom, note))
             custom.addEventListener('keydown', event => {
                 if (event.key === 'Enter') {
@@ -383,8 +384,6 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
                     }
                 }
             })
-            mark(custom, 'custom-input', { field, invalid: !!customErrors[field] })
-            mark(note, 'custom-hint', { field, invalid: !!customErrors[field] })
             sectionEl.append(mark(h('div', {}, custom, note), 'custom', { field }))
         } else if (section.control === 'nth') {
             const nth = nthItem(compiled)
@@ -413,7 +412,8 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
             sectionEl.append(mark(h('div', {}, which, day), 'nth', { field }))
         } else {
             const on = dowSet(compiled)
-            const row = h('div', { 'role': 'group', 'aria-label': t('field.label', { field: 'weekday' }) })
+            // The section around it is already the Day of week group; a second group of the same name only repeats it.
+            const row = h('div', {})
 
             for (const d of fmt.weekOrder) {
                 const pressed = on.has(d)
@@ -464,9 +464,9 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
 
     /** Builds the open menu's contents, keeping focus on the same control when the value changes under it. */
     const fillMenu = (menu: HTMLDivElement, field: FieldKey) => {
-        const m = menuFor(menuOf(field), compiled, { fmt, presets: options.presets, year: engine.clock.wall(engine.clock.now()).y })
+        const m = menuFor(menuOf(field, target.profile), compiled, { fmt, presets: options.presets, year: engine.wall(engine.now()).y })
         const focused = menu.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.key : undefined
-        const note = m.key === 'days' ? daysNote(compiled, t) : null
+        const note = m.sections.some(section => section.field === 'day' || section.field === 'weekday') ? daysNote(compiled, t) : null
         const noteEl = note ? mark(h('p', {}, note), 'note') : null
 
         menu.replaceChildren(...m.sections.map((section, i) => buildSection(m, section, i)), ...(noteEl ? [noteEl] : []))
@@ -624,11 +624,14 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
         const fields = target.profile.fields
 
         chipFields = fields.join(' ')
+        chipsEl.style.setProperty('--n', String(fields.length))
         chips.forEach(({ chip }) => chip.remove())
         chips.clear()
 
         for (const field of fields) {
-            const token = h('span', {})
+            const head = h('span', {})
+            const tail = h('span', {})
+            const token = h('span', {}, head, tail)
             const label = h('span', { 'id': `${uid}-words-${field}`, 'aria-hidden': 'true', 'popover': 'manual' })
             const chip = h(
                 'button',
@@ -640,11 +643,6 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
             // Focus stays where it is on press; the menu then takes it.
             chip.addEventListener('mousedown', event => event.preventDefault())
             chip.addEventListener('click', event => {
-                // The label stays up while the pointer is on it, but it is not part of the chip's target.
-                if ((event.target as HTMLElement).closest('[data-part="chip-label"]')) {
-                    return
-                }
-
                 // A mouse or pen goes straight to typing a value. A tap keeps the on-screen keyboard closed, and a key press
                 // (pointerType '', or detail 0 where click isn't a PointerEvent) keeps arrow keys moving through the presets.
                 const { pointerType, detail } = event as MouseEvent & { pointerType?: string }
@@ -674,22 +672,26 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
                 paintLabels()
             })
             chipsEl.append(chip)
-            chips.set(field, { chip, token, label })
+            chips.set(field, { chip, token, head, tail, label })
         }
     }
 
     const paintChips = () => {
         const words = chipWords(compiled, { fmt })
-        const key = openField ? menuOf(openField) : null
+        const key = openField ? menuOf(openField, target.profile) : null
 
-        for (const [field, { chip, token, label }] of chips) {
+        for (const [field, { chip, token, head, tail, label }] of chips) {
             const text = compiled.raws[field] ?? '*'
+            // A long list is cut in the middle: the head gives way, the last item stays. The comma ends the head, so the
+            // ellipsis takes its place.
+            const cut = text.lastIndexOf(',') + 1 || text.length
             const p = compiled.parsed[field]
             const any = !!p?.ok && !words[field]
             const invalid = !p?.ok
-            const expanded = key !== null && menuFields(key).includes(field)
+            const expanded = key !== null && menuOf(field, target.profile) === key
 
-            token.textContent = text
+            head.textContent = text.slice(0, cut)
+            tail.textContent = text.slice(cut)
             label.textContent = words[field] ?? t('field.every', { field })
             chip.style.setProperty('--len', String(text.length))
             chip.disabled = !!options.disabled
@@ -707,6 +709,8 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
 
             mark(chip, 'chip', { field, open: expanded, invalid, any, target: targetField === field })
             mark(token, 'token', { field })
+            mark(head, 'token-head', { field })
+            mark(tail, 'token-tail', { field })
             mark(label, 'chip-label', { field })
         }
     }
@@ -723,8 +727,10 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
 
     /** Done keeps a draft that is the wrong shape open, with its error. Escape puts back the schedule from before editing. */
     const leaveRaw = (cancel: boolean) => {
+        // The input keeps what was typed while it has focus, so Escape puts the old value in it too.
         if (cancel) {
             commit(before)
+            input.value = before
         }
 
         if (compiled.structure) {
@@ -800,10 +806,10 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
         mark(labelEl, 'label')
         mark(toggle, 'mode-toggle', { open: raw })
 
-        chipsEl.dataset.chipWidth = options.chipWidth ?? 'content'
         box.hidden = raw
         box.toggleAttribute('data-invalid', invalid)
         chipsEl.setAttribute('aria-labelledby', labelledBy)
+        chipsEl.dataset.chipWidth = options.chipWidth ?? 'content'
         mark(box, 'box', { invalid })
         mark(chipsEl, 'chips')
 
@@ -811,7 +817,7 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
         input.disabled = !!options.disabled
         input.placeholder = sample(target.profile)
         input.setAttribute('aria-labelledby', labelledBy)
-        input.toggleAttribute('aria-invalid', invalid)
+        setInvalid(input, invalid)
 
         if (!typing) {
             input.value = value
@@ -833,6 +839,20 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
         paintLabels()
     }
 
+    /** Takes a value from outside: it replaces what Edit as cron shows, and becomes what Escape returns to. */
+    const replace = (next: string) => {
+        value = next
+        recompute()
+        input.value = value
+        before = value
+
+        if (tokenize(value, target.profile).length !== target.profile.fields.length) {
+            raw = true
+        }
+
+        render(true)
+    }
+
     /* ---------- Listeners ---------- */
 
     const listen = <K extends keyof DocumentEventMap>(type: K, handler: (event: DocumentEventMap[K]) => void) => {
@@ -844,7 +864,7 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
     // While the input has focus it keeps the text as typed, spacing included, rather than the value it parses to.
     input.addEventListener('focus', () => (typing = true))
     input.addEventListener('blur', () => (typing = false))
-    input.addEventListener('input', () => commit(tokenize(input.value, target.profile).join(' ')))
+    input.addEventListener('input', () => commit(input.value.trim().split(/\s+/).join(' ')))
     input.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === 'Escape') {
             event.preventDefault()
@@ -869,6 +889,13 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
             close()
         }
     })
+    // The form resets its controls after this event, blanking the text input. Afterwards the field puts its own back: its first
+    // value when it submits with the form, else the value it holds.
+    listen('reset', event => {
+        if (event.target instanceof HTMLFormElement && event.target.contains(root)) {
+            setTimeout(() => replace(options.name ? first : value))
+        }
+    })
     listen('keydown', event => {
         // Escape hides the label under the pointer or focus until the pointer or focus leaves that chip.
         if (event.key === 'Escape' && openField === null) {
@@ -890,29 +917,22 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
             return state
         },
         setValue(next: string) {
-            if (next === value) {
-                return
+            if (next !== value) {
+                replace(next)
             }
-
-            value = next
-            recompute()
-            // A value set from outside replaces what Edit as cron shows, and becomes what Escape returns to.
-            input.value = value
-            before = value
-
-            if (tokenize(value, target.profile).length !== target.profile.fields.length) {
-                raw = true
-            }
-
-            render(true)
         },
-        setOptions(next: Partial<CronFieldOptionsOf<T>>) {
-            const resolved = resolveBase({ ...options, ...next }.target)
+        setOptions(next: Partial<Omit<CronFieldOptionsOf<T>, 'value'>>) {
+            const resolved = resolveAny({ ...options, ...next }.target)
             const sameProfile = JSON.stringify(resolved.profile) === JSON.stringify(target.profile)
             // Wrappers pass every option on each update, and adapters build a new target each call; skip the work when
-            // nothing that shows has changed.
-            const changed = (Object.keys(next) as (keyof CronFieldOptionsOf<T>)[]).some(key =>
-                key === 'target' ? !sameProfile : key !== 'onChange' && next[key] !== options[key],
+            // nothing that shows has changed. The new target is still kept, but a library swap with the same profile
+            // shows its own validation only from the next value change.
+            const changed = (Object.keys(next) as (keyof typeof next)[]).some(key =>
+                key === 'target'
+                    ? !sameProfile
+                    : key === 'presets'
+                      ? JSON.stringify(next.presets) !== JSON.stringify(options.presets)
+                      : key !== 'onChange' && next[key] !== options[key],
             )
 
             options = { ...options, ...next }
@@ -922,13 +942,18 @@ export const createFieldWith = <T extends TargetBase>(engine: Engine, root: HTML
                 return
             }
 
-            fmt = formatter(options, engine.spell)
+            fmt = formatter(options, engine)
             t = fmt.t
             hintShown = ''
 
             // Only a different profile, or disabling, closes the menu.
             if (!sameProfile || options.disabled) {
                 openField = null
+            }
+
+            // A value that doesn't fit the new target's fields is edited as cron, as setValue does.
+            if (!sameProfile && tokenize(value, target.profile).length !== target.profile.fields.length) {
+                raw = true
             }
 
             recompute()

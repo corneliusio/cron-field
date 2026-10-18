@@ -1,6 +1,6 @@
 /*
  * cron-parser as the target. Pass `CronExpressionParser`; with `strict`, cron-parser refuses both day
- * fields at once, and the field then sets only one of them.
+ * fields at once, counting `?` as one in use, and the field then sets only one of them and takes no `?`.
  *
  *     import { CronExpressionParser } from 'cron-parser'
  *     cronParser(CronExpressionParser, { timezone: 'Europe/Berlin' })
@@ -18,7 +18,7 @@ export type CronParserOptions = {
     /** Adds the seconds field in front. Strict mode always has it. */
     seconds?: boolean
     timezone?: string
-    /** Requires all six fields and refuses both day fields at once. */
+    /** Requires all six fields and refuses both day fields at once, `?` counting as one. */
     strict?: boolean
 }
 
@@ -35,7 +35,7 @@ export const cronParser = (Parser: CronExpressionParserClass, options: CronParse
         profile: {
             ...TARGETS['cron-parser'],
             fields: fieldsFor(seconds),
-            ...(strict ? { days: 'exclusive' as const } : {}),
+            ...(strict ? { days: 'exclusive' as const, question: 'none' as const } : {}),
             ...(timezone ? { timezone } : {}),
         },
         validate: value => {

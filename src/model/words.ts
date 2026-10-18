@@ -5,8 +5,7 @@
  */
 import { shape, type Shape } from '../core/describe.ts'
 import { FIELDS, type FieldKey } from '../core/fields.ts'
-import { dayLogic, parseField, type Compiled, type ParsedField, type SpecialItem } from '../core/syntax.ts'
-import type { TargetProfile } from '../core/targets.ts'
+import { dayLogic, type Compiled, type ParsedField, type SpecialItem } from '../core/syntax.ts'
 import { formatter, type Formatter, type FormatOptions } from '../i18n/locale.ts'
 
 /** A step reads as a cadence only when it carries on evenly into the next minute, hour, day, month or year. Otherwise its bounds matter. */
@@ -26,7 +25,7 @@ const timeText = (s: Shape, key: 'second' | 'minute' | 'hour', f: Formatter) => 
 
 const extText = (item: SpecialItem, f: Formatter) => {
     if (item.t === 'last') {
-        return item.off ? f.t('dom.lastOffset', { n: item.off }) : f.t('word.lastDay')
+        return item.off ? f.t('word.lastOffset', { n: item.off, nth: f.ordinal(item.off + 1) }) : f.t('word.lastDay')
     }
 
     if (item.t === 'lastWeekday') {
@@ -63,6 +62,11 @@ const dowText = (s: Shape, f: Formatter) => {
 
     if (key === '1,2,3,4,5') {
         return f.t('word.weekdays')
+    }
+
+    // Three or more days in a row read as a range, as in the sentence, so FRI-MON is Friday through Monday rather than in week order.
+    if ((s.k === 'range' || s.k === 'wrap') && s.vals.length >= 3) {
+        return f.t('range.through', { start: f.weekday(s.a), end: f.weekday(s.b) })
     }
 
     return key === '0,6' ? f.t('word.weekends') : f.list(s.vals.map(v => f.t('day.plural', { day: v, dayName: f.weekday(v) })))
@@ -114,7 +118,7 @@ const rangeWords = (s: Shape, key: FieldKey, f: Formatter) => {
 }
 
 /** Words for one field, or null when the field is unrestricted. Special items are added to the plain values, never instead of them. */
-const fieldWords = (p: ParsedField, key: FieldKey, f: Formatter): string | null => {
+export const fieldWords = (p: ParsedField, key: FieldKey, f: Formatter): string | null => {
     if (!p.ok) {
         return p.error ? f.t(p.error.id, p.error.params) : null
     }
@@ -124,17 +128,16 @@ const fieldWords = (p: ParsedField, key: FieldKey, f: Formatter): string | null 
     }
 
     const s = shape(p, key)
-    const plain = p.set.size && s.k !== 'any' ? rangeWords(s, key, f) : null
+
+    // Values that already cover the field leave it unrestricted, whatever special items come with them.
+    if (s.k === 'any') {
+        return null
+    }
+
+    const plain = p.set.size ? rangeWords(s, key, f) : null
     const ext = p.items.flatMap(item => (item.t === 'range' ? [] : [extText(item, f)]))
 
     return ext.length ? f.list([...(plain ? [plain] : []), ...ext]) : plain
-}
-
-/** A chip's words for one token of its field, such as "Weekdays" for `1-5`, or null for a token that means every value. */
-export const tokenWords = (token: string, key: FieldKey, profile: TargetProfile, f: Formatter): string | null => {
-    const words = fieldWords(parseField(token, key, profile), key, f)
-
-    return words ? f.cap(words) : null
 }
 
 /** The hover label for every chip, null where the field is unrestricted. */

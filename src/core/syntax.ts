@@ -39,7 +39,7 @@ const span = (key: FieldKey, profile: TargetProfile): Span => {
     const field = FIELDS[key]
 
     if (key === 'weekday') {
-        return profile.weekdayBase === 1 ? { min: 1, max: 7, parseMax: 7 } : { min: 0, max: 6, parseMax: 7 }
+        return profile.weekdayBase === 1 ? { min: 1, max: 7, parseMax: 7 } : { min: 0, max: 6, parseMax: profile.sundaySeven === 'none' ? 6 : 7 }
     }
 
     if (key === 'year') {
@@ -136,7 +136,7 @@ const special = (part: string, key: FieldKey, alone: boolean, profile: TargetPro
     if (key === 'weekday') {
         const friday = dowNumber(5, profile)
 
-        // In Quartz, L on its own is the last day of the week: Saturday.
+        // In Quartz and EventBridge, L on its own is the last day of the week: Saturday.
         if (part === 'l') {
             return has(profile, 'lastDayOfWeek')
                 ? { t: 'range', a: 6, b: 6, step: 1 }
@@ -202,7 +202,8 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
             return fail('error.questionDays', {}, '*')
         }
 
-        // croner reads ? as a value rather than as *, so the day fields would combine with every day.
+        // croner reads ? as a value rather than as *, so the day fields would combine with every day; strict cron-parser counts it
+        // as a day field in use.
         if (profile.question === 'none') {
             return fail('error.questionStar', {}, '*')
         }
@@ -231,6 +232,11 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
         }
 
         if (special) {
+            // Specials repeat when they mean the same, as 5L and FRIL do.
+            if (profile.unique && result.items.some(item => JSON.stringify(item) === JSON.stringify(special))) {
+                return fail('error.duplicate', { value: part.toUpperCase(), target: profile.label })
+            }
+
             result.items.push(special)
             continue
         }
@@ -247,6 +253,12 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
 
         if (match[1] === '*' && match[2] !== undefined) {
             return fail('error.starRange', { part })
+        }
+
+        if (match[1] === '*' && hasStep && key === 'year' && !profile.yearStarStep) {
+            const range = `${bounds.min}-${bounds.max}/${step}`
+
+            return fail('error.stepNeedsRange', { part, example: range }, swap(part, range).toUpperCase())
         }
 
         if (match[1] !== '*') {
@@ -281,17 +293,18 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
             }
 
             if (hasStep && !end) {
-                // A step from Sunday written as 7 runs to 7: 7/2 is Sunday alone.
-                const last = Math.max(bounds.max, a)
+                // A step from a start runs to the field's end; in the day of week, to 7 where a step reaches Sunday as 7, so 7/2 is Sunday alone.
+                const last = key === 'weekday' && profile.sundaySeven === 'steps' ? bounds.parseMax : bounds.max
+                const range = `${a}-${Math.max(last, a)}/${step}`
 
-                if (!profile.stepStart) {
-                    return fail('error.stepNeedsRange', { part, example: `${a}-${last}/${step}` }, swap(part, `${a}-${last}/${step}`).toUpperCase())
+                if (!profile.stepStart || a > last) {
+                    return fail('error.stepNeedsRange', { part, example: range }, swap(part, range).toUpperCase())
                 }
 
                 b = last
             }
 
-            if (key === 'weekday' && profile.weekdayBase === 0 && b === 0 && a > 0) {
+            if (key === 'weekday' && profile.weekdayBase === 0 && profile.sundaySeven !== 'none' && b === 0 && a > 0) {
                 return fail('error.sundaySeven', {}, swap(part, `${a}-7${hasStep ? `/${step}` : ''}`).toUpperCase())
             }
 
@@ -322,9 +335,25 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
             continue
         }
 
+        // Sunday can come twice inside one range, as in 0-7, so only values from earlier parts count as repeats.
+        const earlier = new Set(result.set)
+
         for (let value = item.a; value <= item.b; value += item.step) {
-            result.set.add(key === 'weekday' ? value % 7 : value)
+            const v = key === 'weekday' ? value % 7 : value
+
+            if (profile.unique && earlier.has(v)) {
+                return fail('error.duplicate', { value: key === 'weekday' ? dowNumber(value, profile) : value, target: profile.label })
+            }
+
+            result.set.add(v)
         }
+    }
+
+    // The fix lists the values the step gives, unless L or # comes with them.
+    if (profile.noSteps.includes(key) && text.includes('/')) {
+        const plain = result.items.every(item => item.t === 'range')
+
+        return fail('error.unsupported', { target: profile.label, token: '/' }, plain ? compress([...result.set], key, profile, false) : null)
     }
 
     result.ok = true
@@ -332,12 +361,13 @@ export const parseField = (raw: string, key: FieldKey, profile: TargetProfile): 
     return result
 }
 
-/** A shortcut such as `@daily`, written in the target's own fields, or null. */
+/** A shortcut such as `@daily`, or null. Shortcuts are written in five fields; a seconds field gets `0` and a year field `*`. */
 export const expand = (input: string, profile: TargetProfile): string[] | null => {
-    const key = input.trim().toLowerCase()
-
+    const key = profile.caseSensitiveMacros ? input.trim() : input.trim().toLowerCase()
     // Own keys only, so input such as `constructor` cannot reach Object.prototype.
-    return Object.hasOwn(profile.macros, key) ? (profile.macros[key]?.split(' ') ?? null) : null
+    const tokens = Object.hasOwn(profile.macros, key) ? profile.macros[key]?.split(' ') : undefined
+
+    return tokens ? [...(profile.fields[0] === 'second' ? ['0'] : []), ...tokens, ...(profile.fields.at(-1) === 'year' ? ['*'] : [])] : null
 }
 
 /** Splits a value into the target's fields, expanding a shortcut the target reads. */
@@ -359,7 +389,8 @@ const structureError = (value: string, tokens: string[], profile: TargetProfile)
         return { id: 'error.typeSchedule', params: { example: sample(profile) } }
     }
 
-    if (text.startsWith('@') && !expand(text, profile)) {
+    // One token means the target didn't expand it. An @word with more after it is a field-count problem instead.
+    if (tokens.length === 1 && text.startsWith('@')) {
         return Object.keys(profile.macros).length
             ? { id: 'error.unknownShortcut', params: { token: tokens[0] ?? '' } }
             : { id: 'error.noShortcuts', params: { target: profile.label, token: tokens[0] ?? '' } }
@@ -451,9 +482,11 @@ export const format = (tokens: Partial<Record<FieldKey, string>>, profile: Targe
     return profile.fields.map(key => next[key] || '*').join(' ')
 }
 
-/** A day field that matches every day, so OR-combining targets run every day whatever the other field says. */
-export const everyDay = (p: ParsedField, key: 'day' | 'weekday') =>
-    p.ok && !p.star && p.items.every(item => item.t === 'range') && p.set.size === (key === 'day' ? 31 : 7)
+/**
+ * A restricted day field whose values match every day, whatever special items such as L come with them. It reads as
+ * unrestricted, and OR-combining targets run every day whatever the other field says.
+ */
+export const everyDay = (p: ParsedField, key: 'day' | 'weekday') => p.ok && !p.star && p.set.size === (key === 'day' ? 31 : 7)
 
 /**
  * Which day rule the target applies: neither field, one of them, or both combined. Vixie cron and Effect

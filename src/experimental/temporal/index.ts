@@ -8,14 +8,14 @@
  *
  * Date appears only in `fromDateTarget`, which adapts targets whose parser library works in Date.
  */
-import type { Clock } from '../../core/clock.ts'
-import { describe as describeWith, neverReason as neverReasonWith, type DescribeOptions } from '../../core/describe.ts'
-import { matchRuns } from '../../core/schedule.ts'
+import { describe as describeWith, neverReason as neverReasonWith, type DescribeOptions, type NeverOptions } from '../../core/describe.ts'
+import type { Engine } from '../../core/engine.ts'
+import { matchRuns, runCount } from '../../core/schedule.ts'
 import { compile, type Compiled, type Issue } from '../../core/syntax.ts'
-import { DEFAULT_TARGET, resolveBase, type Target as DateTarget, type TargetBase } from '../../core/target.ts'
+import { libraryRuns, resolveAny, type Target as DateTarget, type TargetBase } from '../../core/target.ts'
 import type { TargetName, TargetProfile } from '../../core/targets.ts'
-import { createFieldWith, type CronFieldInstanceOf, type CronFieldOptionsOf, type Engine } from '../../dom/create.ts'
-import { formatter as formatterWith, type Formatter, type FormatOptions, type FormatterOptions, type Spell } from '../../i18n/locale.ts'
+import { createFieldWith, type CronFieldInstanceOf, type CronFieldOptionsOf } from '../../dom/create.ts'
+import { formatter as formatterWith, type Formatter, type FormatOptions, type FormatterOptions } from '../../i18n/locale.ts'
 import { menu as menuWith, type Menu, type MenuKey, type MenuOptions } from '../../model/menus.ts'
 import { status as statusWith, type Status, type StatusOptions } from '../../model/messages.ts'
 import { chipWords as chipWordsWith } from '../../model/words.ts'
@@ -29,8 +29,6 @@ export type RunsOptions = {
     /** An IANA zone such as `America/Chicago`. Defaults to the target's, else the runtime's. */
     timezone?: string | undefined
 }
-
-export type NextRunsOptions = RunsOptions
 
 export type Target = TargetBase & {
     /** Upcoming runs from the target's library. Should return an empty array for a schedule that never runs. */
@@ -50,11 +48,32 @@ const temporal = (): typeof Temporal => {
     return Temporal
 }
 
-const zoneOf = (timezone?: string) => timezone ?? temporal().Now.timeZoneId()
+const known = new Map<string, boolean>()
+
+/** The zone, or the runtime's, with one warning, for a zone the runtime doesn't know, as the Date engine does. */
+const zoneOf = (timezone?: string) => {
+    if (timezone && !known.has(timezone)) {
+        try {
+            temporal().Now.zonedDateTimeISO(timezone)
+            known.set(timezone, true)
+        } catch {
+            console.warn(`cron-field: unknown time zone “${timezone}”; using local time.`)
+            known.set(timezone, false)
+        }
+    }
+
+    return timezone && known.get(timezone) ? timezone : temporal().Now.timeZoneId()
+}
 const zoned = (time: number, timezone: string) => temporal().Instant.fromEpochMilliseconds(time).toZonedDateTimeISO(timezone)
 
-/** The clock on Temporal. `compatible` is the field's DST rule: a skipped time moves past the gap, a repeated one takes the first. */
-export const temporalClock: Clock = {
+/**
+ * The engine on Temporal. `compatible` is the field's DST rule: a skipped time moves past the gap, a repeated one takes
+ * the first. Times are spelled through PlainTime and names through PlainDate, which carry no zone to shift them. The
+ * hour cycle goes in the locale tag: some runtimes ignore the `hourCycle` option for Temporal values in some locales
+ * (Japanese midnight on a 12-hour clock reads 午前0時 rather than 午前12時) but honor `-u-hc-`. Known gap: Node 26 also
+ * drops the zero-padding of 24-hour times through Temporal in some locales, such as Japanese and Persian: 7:05 where Date gives 07:05.
+ */
+export const temporalEngine: Engine = {
     now: () => temporal().Now.instant().epochMilliseconds,
     instant: ({ y, mo, d, h, mi, s }, timezone) =>
         temporal().ZonedDateTime.from(
@@ -66,25 +85,16 @@ export const temporalClock: Clock = {
 
         return { y: at.year, mo: at.month, d: at.day, h: at.hour, mi: at.minute, s: at.second }
     },
+    spell: (locale, { hourCycle, ...options }, { month = 1, day = 1, hour, minute = 0 }) => {
+        const tag = hourCycle ? new Intl.Locale(locale, { hourCycle }).toString() : locale
+
+        return hour === undefined
+            ? temporal().PlainDate.from({ year: 2001, month, day }).toLocaleString(tag, options)
+            : new (temporal().PlainTime)(hour, minute).toLocaleString(tag, options)
+    },
 }
 
-/**
- * Spells times through PlainTime and names through PlainDate, which carry no zone to shift them. The hour cycle goes in
- * the locale tag: some runtimes ignore the `hourCycle` option for Temporal values in some locales (Japanese midnight on a
- * 12-hour clock reads 午前0時 rather than 午前12時) but honor `-u-hc-`. Known gap: Node 26 also drops the zero-padding of
- * Japanese 24-hour times through Temporal, 7:05 where Date gives 07:05.
- */
-export const spellTemporal: Spell = (locale, { hourCycle, ...options }, { month = 1, day = 1, hour, minute = 0 }) => {
-    const tag = hourCycle ? new Intl.Locale(locale, { hourCycle }).toString() : locale
-
-    return hour === undefined
-        ? temporal().PlainDate.from({ year: 2001, month, day }).toLocaleString(tag, options)
-        : new (temporal().PlainTime)(hour, minute).toLocaleString(tag, options)
-}
-
-const engine: Engine = { clock: temporalClock, spell: spellTemporal }
-
-export const formatter = (options: FormatterOptions = {}): Formatter => formatterWith(options, spellTemporal)
+export const formatter = (options: FormatterOptions = {}): Formatter => formatterWith(options, temporalEngine)
 
 const withFormatter = <O extends FormatOptions>(options: O): O & { fmt: Formatter } => ({ ...options, fmt: options.fmt ?? formatter(options) })
 
@@ -92,34 +102,42 @@ export const describe = (c: Compiled, options: DescribeOptions = {}): string | n
 
 export const chipWords = (c: Compiled, options: FormatOptions = {}) => chipWordsWith(c, withFormatter(options))
 
-export const neverReason = (c: Compiled, f: Formatter = formatter()): Issue => neverReasonWith(c, f)
+export const neverReason = (c: Compiled, f: Formatter = formatter(), options: NeverOptions = {}): Issue => neverReasonWith(c, f, options)
 
 export const menu = (key: MenuKey, c: Compiled, options: MenuOptions = {}): Menu =>
     menuWith(key, c, { ...withFormatter(options), year: options.year ?? temporal().Now.plainDateISO().year })
 
 export const status = (value: string, c: Compiled, target: TargetBase, options: StatusOptions = {}): Status =>
-    statusWith(value, c, target, { ...withFormatter(options), clock: options.clock ?? temporalClock })
+    statusWith(value, c, target, { ...withFormatter(options), engine: options.engine ?? temporalEngine })
 
 /** The next runs after `from`, by the built-in matcher, in the schedule's zone. Empty when it doesn't parse or never runs. */
-export const nextRuns = (c: Compiled, { from, count = 1, timezone = c.profile.timezone }: NextRunsOptions = {}): Temporal.ZonedDateTime[] => {
+export const nextRuns = (c: Compiled, { from, count = 1, timezone = c.profile.timezone }: RunsOptions = {}): Temporal.ZonedDateTime[] => {
     const zone = zoneOf(timezone)
 
-    return matchRuns(c, { from: from?.epochMilliseconds ?? temporalClock.now(), count, timezone: zone }, temporalClock).map(time => zoned(time, zone))
+    return matchRuns(c, { from: from?.epochMilliseconds ?? temporalEngine.now(), count, timezone: zone }, temporalEngine).map(time => zoned(time, zone))
 }
 
-export const resolveTarget = (input: TargetInput = DEFAULT_TARGET): Target =>
-    typeof input === 'object' && 'profile' in input ? input : { profile: resolveBase(input).profile }
+export const resolveTarget = (input?: TargetInput): Target => resolveAny(input)
 
 /**
  * Upcoming runs, from the target's library when it has one. The built-in matcher goes first, so a schedule that never runs
  * returns at once instead of leaving a library searching.
  */
 export const upcoming = (target: Target, value: string, { from, count = 1, timezone }: RunsOptions = {}): Temporal.ZonedDateTime[] => {
+    const runs = target.nextRuns
     const zone = zoneOf(timezone ?? target.profile.timezone)
-    const builtIn = nextRuns(compile(value, target.profile), { from, count: target.nextRuns ? 1 : count, timezone: zone })
+    const wanted = runCount(count)
+    const builtIn = nextRuns(compile(value, target.profile), { from, count: runs ? Math.min(wanted, 1) : wanted, timezone: zone })
     const start = from === undefined ? temporal().Now.zonedDateTimeISO(zone) : zoned(from.epochMilliseconds, zone)
 
-    return target.nextRuns && builtIn.length ? target.nextRuns(value, { from: start, count, timezone: zone }) : builtIn
+    return runs && builtIn.length
+        ? libraryRuns(
+              size => runs(value, { from: start, count: size, timezone: zone }),
+              start.epochMilliseconds,
+              wanted,
+              run => run.epochMilliseconds,
+          )
+        : builtIn
 }
 
 /**
@@ -141,4 +159,4 @@ export const fromDateTarget = (target: DateTarget): Target => {
     }
 }
 
-export const createCronField = (root: HTMLElement, initial: CronFieldOptions = {}): CronFieldInstance => createFieldWith(engine, root, initial)
+export const createCronField = (root: HTMLElement, initial: CronFieldOptions = {}): CronFieldInstance => createFieldWith(temporalEngine, root, initial)

@@ -42,14 +42,18 @@ export const effect = <C>(Cron: EffectCronModule<C>, options: EffectOptions = {}
 
             const runs = Cron.sequence(result.success, from)
 
-            while (out.length < count) {
-                const next = runs.next()
+            try {
+                while (out.length < count) {
+                    const next = runs.next()
 
-                if (next.done) {
-                    break
+                    if (next.done) {
+                        break
+                    }
+
+                    out.push(next.value)
                 }
-
-                out.push(next.value)
+            } catch {
+                // Effect throws once it runs out of dates, as for February 31st.
             }
 
             return out

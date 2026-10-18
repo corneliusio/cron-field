@@ -66,7 +66,7 @@
     height: calc(var(--_cron-field-u) * 5);
 }
 
-:where(.cron-field [data-part='mode-toggle']) {
+:where(.cron-field :is([data-part='mode-toggle'], [data-part='clear'])) {
     display: inline-flex;
     align-items: center;
     height: calc(var(--_cron-field-u) * 6);
@@ -95,31 +95,16 @@
 
 /*
  * Chips share the row in proportion to their token's length (the text is mono), keep their natural width
- * up to an equal share of the row, and clip long tokens past that. --len is the token's length; --_cron-field-n
- * the number of chips.
+ * up to an equal share of the row, and clip long tokens past that. The field sets --len, the token's length,
+ * on each chip and --n, the number of chips, on the row.
  */
-:where(.cron-field [data-part='chips']) {
-    --_cron-field-n: 5;
-}
-
-:where(.cron-field [data-part='chips']:has(> [data-part='chip']:nth-of-type(6))) {
-    --_cron-field-n: 6;
-}
-
-:where(.cron-field [data-part='chips']:has(> [data-part='chip']:nth-of-type(7))) {
-    --_cron-field-n: 7;
-}
-
 :where(.cron-field [data-part='chip']) {
     position: relative;
     display: inline-flex;
     flex: calc(var(--len, 1) + 2.25) 1 0%;
     align-items: center;
     justify-content: center;
-    min-width: min(
-        calc(var(--len, 1) * 1ch + var(--_cron-field-u) * 4),
-        calc((100% - (var(--_cron-field-n) - 1) * var(--_cron-field-u)) / var(--_cron-field-n))
-    );
+    min-width: min(calc(var(--len, 1) * 1ch + var(--_cron-field-u) * 4 + 1px), calc((100% - (var(--n, 5) - 1) * var(--_cron-field-u)) / var(--n, 5)));
     height: calc(var(--_cron-field-u) * 6);
     padding-inline: calc(var(--_cron-field-u) * 2 - 1px);
     border: 1px solid transparent;
@@ -147,15 +132,31 @@
     border-color: currentColor;
 }
 
+/*
+ * A long token gives way in the middle: the head takes the ellipsis, the tail keeps the last list item. The token
+ * is a whole number of characters wide, so the ellipsis meets the tail without a gap.
+ */
 :where(.cron-field [data-part='token']) {
+    display: flex;
     min-width: 0;
+    max-width: calc(round(down, 100% - 0.5px, 1ch) + 0.5px);
+    overflow: hidden;
+}
+
+:where(.cron-field [data-part='token-head']) {
+    min-width: 1ch;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* The chip's meaning, shown above it on hover and keyboard focus. Placed by the field. */
+:where(.cron-field [data-part='token-tail']) {
+    flex-shrink: 0;
+}
+
+/* The chip's meaning, shown above it on hover and keyboard focus. Placed by the field. Clicks pass through, so it never covers a control. */
 :where(.cron-field [data-part='chip-label']) {
     overflow: hidden;
+    pointer-events: none;
     height: calc(var(--_cron-field-u) * 6);
     padding: 0 calc(var(--_cron-field-u) * 2);
     font-family: var(--_cron-field-font, inherit);
@@ -164,20 +165,6 @@
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-/* The label stays up while the pointer crosses from the chip onto it. */
-:where(.cron-field [data-part='chip-label'])::before {
-    content: '';
-    position: absolute;
-    inset-inline: 0;
-    top: 100%;
-    height: calc(var(--_cron-field-u) * 2);
-}
-
-:where(.cron-field [data-part='chip-label'][data-side='bottom'])::before {
-    top: auto;
-    bottom: 100%;
 }
 
 /* Edit as cron: a plain input of the box's size. */
@@ -194,7 +181,7 @@
     font-family: var(--_cron-field-font-mono, ui-monospace, monospace);
 }
 
-/* Menus: placed under the field by the field itself. */
+/* Menus: placed under the field by the field itself. Everything in a section starts 2u in; only list rows run to the edge. */
 :where(.cron-field [data-part='menu']:popover-open) {
     display: grid;
     align-content: start;
@@ -235,11 +222,6 @@
     align-items: center;
 }
 
-/* Days menu: the dot lines up with the pills' edge, and the title with their text. */
-:where(.cron-field [data-part='section-head']:has([data-part='dot'])) {
-    padding-inline: var(--_cron-field-u);
-}
-
 :where(.cron-field [data-part='dot']) {
     display: block;
     flex: none;
@@ -254,22 +236,11 @@
     background-color: currentColor;
 }
 
-:where(.cron-field [data-part='clear']) {
-    display: inline-flex;
-    align-items: center;
-    height: calc(var(--_cron-field-u) * 6);
-    padding-inline: calc(var(--_cron-field-u) * 2 - 1px);
-}
-
-:where(.cron-field [data-part='presets'][data-layout='list']) {
-    display: grid;
-}
-
 :where(.cron-field [data-part='presets'][data-layout='pills']) {
     display: flex;
     flex-wrap: wrap;
     gap: var(--_cron-field-u);
-    padding-inline: var(--_cron-field-u);
+    padding-inline: calc(var(--_cron-field-u) * 2);
 }
 
 :where(.cron-field [data-layout='list'] > [data-part='preset']) {
@@ -306,24 +277,21 @@
     height: calc(var(--_cron-field-u) * 3.5);
 }
 
-:where(.cron-field [data-part='custom']) {
+:where(.cron-field :is([data-part='custom'], [data-part='nth'])) {
     display: grid;
     gap: calc(var(--_cron-field-u) * 1.5);
-    padding: var(--_cron-field-u) var(--_cron-field-u) 0;
+    padding: var(--_cron-field-u) calc(var(--_cron-field-u) * 2) 0;
 }
 
 :where(.cron-field [data-part='nth']) {
-    display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: calc(var(--_cron-field-u) * 1.5);
-    padding: var(--_cron-field-u) var(--_cron-field-u) 0;
 }
 
 :where(.cron-field [data-part='days']) {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: calc(var(--_cron-field-u) * 0.5);
-    margin: var(--_cron-field-u) var(--_cron-field-u) 0;
+    margin: var(--_cron-field-u) calc(var(--_cron-field-u) * 2) 0;
     padding: calc(var(--_cron-field-u) * 0.5);
 }
 

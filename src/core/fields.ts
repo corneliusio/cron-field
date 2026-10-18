@@ -15,6 +15,9 @@ export type FieldSpec = {
 export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 export const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
+/** Days in each month of a common year. */
+export const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
 /** A field's values in order. */
 export const sorted = (values: Iterable<number>) => [...values].sort((a, b) => a - b)
 

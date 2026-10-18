@@ -14,6 +14,8 @@ export type PartName =
     | 'chips'
     | 'chip'
     | 'token'
+    | 'token-head'
+    | 'token-tail'
     | 'chip-label'
     | 'input'
     | 'menu'

@@ -46,6 +46,8 @@ export const MESSAGES = {
     'warning.minInterval': '{target} runs a schedule at most every {minutes} minutes.',
     'error.engine': '{target} can’t run this schedule: {detail}',
     'never.monthLacks': '{count, plural, one {{months} never has a {day}.} other {{months} never have a {day}.}}',
+    'never.pastYears':
+        '{count, plural, one {This schedule won’t run again: {year} has passed.} other {This schedule won’t run again: its last year, {year}, has passed.}}',
     'never.generic': 'This schedule never runs. Check the day and month fields.',
 
     /* ---------- Formats Intl can't spell ---------- */
@@ -86,7 +88,8 @@ export const MESSAGES = {
     'dom.range': 'the {start} through the {end}',
     'dom.first': 'the {day}',
     'dom.last': 'the last day',
-    'dom.lastOffset': '{n, plural, one {# day} other {# days}} before the last day',
+    // `n` is the cron offset, 3 in L-3; `nth` counts from the last day, so L-3 is the 4th-to-last.
+    'dom.lastOffset': 'the {nth}-to-last day',
     'dom.lastWeekday': 'the last weekday',
     'dom.nearest': 'the weekday nearest the {day}',
     'dow.weekdays': 'on weekdays',
@@ -119,6 +122,7 @@ export const MESSAGES = {
     'word.weekdays': 'weekdays',
     'word.weekends': 'weekends',
     'word.lastDay': 'last day',
+    'word.lastOffset': '{nth}-to-last day',
     'word.lastWeekday': 'last weekday',
     'word.nearest': 'weekday nearest the {day}',
     'word.lastDow': 'last {dayName}',
@@ -153,6 +157,7 @@ export const MESSAGES = {
     'error.stepNeedsRange': '{part} needs a range to step through: {example}.',
     'error.sundaySeven': 'Write Sunday as 7 at the end of a range.',
     'error.backwards': '{range} runs backwards. Cron needs it split in two.',
+    'error.duplicate': '{value} appears more than once. {target} allows each value only once.',
     'error.unsupported': '{target} doesn’t support {token}.',
     'error.lastOffsetUnsupported': 'Counting back from the last day ({token}) isn’t supported. Use L, or list the days.',
     'error.lastOffsetRange': 'L- can count back 1 to 30 days.',
