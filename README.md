@@ -200,5 +200,5 @@ pnpm build    # dist/
 pnpm verify   # all of the above, plus the format check
 ```
 
-Pull requests run `pnpm verify`, and `pnpm check` and `pnpm test` at the lowest supported versions. A weekly job runs `pnpm verify` with the parsers,
+Pull requests run `pnpm verify`, with the locked versions and with the lowest supported ones. A weekly job runs `pnpm verify` with the parsers,
 frameworks and happy-dom at their newest releases; when it passes on a new major, widen that peer range by hand.
